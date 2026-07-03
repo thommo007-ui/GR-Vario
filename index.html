@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Glide Vario v0.10</title>
+<style>
+  :root { --bg:#000; --ink:#FFF; --ok:#00E676; --bad:#FF5252; --dim:#8A8A8A; --acc:#40C4FF; --warn:#FFB300; }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { background:var(--bg); color:var(--ink);
+         font-family:-apple-system,Roboto,"Segoe UI",sans-serif; padding:8px; }
+  .row { display:flex; gap:8px; margin-bottom:8px; }
+  .card { flex:1 1 0; min-width:0; border:2px solid #333; border-radius:10px; padding:8px 10px; overflow:hidden; }
+  /* Locked geometry: values changing must never move or resize anything */
+  .row.top .card { height:96px; }
+  .row.mid .card { height:72px; }
+  .label { font-size:11px; text-transform:uppercase; letter-spacing:.08em; color:var(--dim);
+           white-space:nowrap; overflow:hidden; height:16px; line-height:16px; }
+  .big { font-size:44px; font-weight:800; height:56px; line-height:56px;
+         font-variant-numeric:tabular-nums; white-space:nowrap; text-align:center; }
+  .mid { font-size:22px; font-weight:700; height:32px; line-height:32px;
+         font-variant-numeric:tabular-nums; white-space:nowrap; text-align:center; }
+  .unit { font-size:14px; color:var(--dim); font-weight:400; }
+  #gr.good { color:var(--ok); } #gr.bad { color:var(--warn); }
+  #regime { font-size:13px; font-weight:700; }
+  #regime.good { color:var(--ok); } #regime.bad { color:var(--warn); }
+  #sndDot { position:absolute; top:6px; right:10px; font-size:18px; color:#444; }
+  #sndDot.on { color:var(--ok); animation:pulse 2s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1;} 50%{opacity:.35;} }
+  #grCard { cursor:pointer; -webkit-tap-highlight-color:rgba(64,196,255,.25); }
+  /* ---- MINI MODE (?mini=1): giant GR number only, fills the widget ---- */
+  body.mini { padding:0; overflow:hidden; }
+  body.mini #status, body.mini .row.mid, body.mini button,
+  body.mini details, body.mini #varioCard { display:none; }
+  body.mini .row.top { margin:0; gap:0; height:100vh; }
+  body.mini #grCard { height:100vh; border:none; border-radius:0; padding:0;
+    display:flex; flex-direction:column; align-items:center; justify-content:center; }
+  body.mini .label { font-size:4vmin; height:auto; line-height:1.2; }
+  body.mini .big { font-size:42vmin; height:auto; line-height:1; }
+  body.mini #sndDot { font-size:8vmin; top:2vmin; right:3vmin; }
+  #status { font-size:13px; color:var(--dim); margin-bottom:8px; }
+  button { padding:14px; font-size:16px; font-weight:700; border:none; border-radius:10px;
+           background:#1565C0; color:#fff; width:100%; margin-bottom:8px; }
+  button.on { background:#2E7D32; }
+  details { border:2px solid #333; border-radius:10px; padding:8px 10px; margin-bottom:8px; }
+  summary { font-size:13px; text-transform:uppercase; letter-spacing:.08em; color:var(--dim); }
+  .sec { font-size:12px; text-transform:uppercase; letter-spacing:.08em; color:var(--acc);
+         margin-top:14px; border-top:1px solid #222; padding-top:10px; }
+  .sec.warn { color:var(--warn); } .sec.ok { color:var(--ok); }
+  .set { display:flex; align-items:center; gap:8px; margin-top:10px; font-size:14px; }
+  .set label { flex:1.4; }
+  .set input[type=range] { flex:2; }
+  .set select { flex:2; background:#111; color:#fff; border:1px solid #444; border-radius:6px; padding:6px; font-size:14px; }
+  .set .val { width:60px; text-align:right; font-variant-numeric:tabular-nums; color:var(--acc); }
+  #log { font-family:monospace; font-size:11px; white-space:pre-wrap; word-break:break-all;
+         color:#90A4AE; max-height:26vh; overflow-y:auto; }
+</style>
+</head>
+<body>
+
+<div id="status">Waiting for XCTrack data…</div>
+
+<div class="row top">
+  <div class="card" id="grCard" style="position:relative;">
+    <div class="label">Glide ratio <span id="avgLbl"></span> · <span id="regime">–</span>
+      <span id="sndDot" title="audio state">●</span></div>
+    <div class="big" id="gr">–</div>
+  </div>
+  <div class="card" id="varioCard">
+    <div class="label">Vario (1s)</div>
+    <div class="big" id="vs">–<span class="unit"> m/s</span></div>
+  </div>
+</div>
+
+<div class="row mid">
+  <div class="card"><div class="label">Speed</div><div class="mid" id="spd">–<span class="unit"> km/h</span></div></div>
+  <div class="card"><div class="label">Alt (<span id="altSrc">?</span>)</div><div class="mid" id="alt">–<span class="unit"> m</span></div></div>
+  <div class="card"><div class="label">Data rate</div><div class="mid" id="hz">–<span class="unit"> Hz</span></div></div>
+</div>
+
+<button id="soundBtn">🔇 SOUND OFF — TAP TO ENABLE</button>
+<button id="demoBtn">DEMO: SWEEP GR 3 → 14 (hear both regimes)</button>
+
+<details>
+  <summary>Sound &amp; averaging settings</summary>
+
+  <div class="sec">General</div>
+  <div class="set"><label>GR averaging (s)</label><input type="range" id="g_avg" min="1" max="30" step="1"><span class="val" id="g_avgV"></span></div>
+  <div class="set"><label>GR threshold (good/bad)</label><input type="range" id="g_thr" min="4" max="15" step="0.5"><span class="val" id="g_thrV"></span></div>
+  <div class="set"><label>Master volume</label><input type="range" id="g_vol" min="0" max="100" step="5"><span class="val" id="g_volV"></span></div>
+  <div class="set"><label>Mute when GR infinite (no net sink)</label><input type="checkbox" id="g_mute"><span class="val"></span></div>
+
+  <div class="sec warn">Bad air (GR below threshold)</div>
+  <div id="badSets"></div>
+
+  <div class="sec ok">Good air (GR above threshold)</div>
+  <div id="goodSets"></div>
+</details>
+
+<details>
+  <summary>Log (diagnostics)</summary>
+  <div id="log"></div>
+</details>
+
+<script>
+"use strict";
+// ================= utils =================
+var logEl=document.getElementById("log");
+function log(m){ var t=new Date().toISOString().substr(11,8);
+  logEl.textContent=(t+"  "+m+"\n"+logEl.textContent).split("\n").slice(0,150).join("\n"); }
+window.onerror=function(m,s,l){ log("ERROR: "+m+" @"+l); return false; };
+function $(id){ return document.getElementById(id); }
+function clamp(x,a,b){ return Math.max(a,Math.min(b,x)); }
+// Mini mode: add ?mini=1 to the URL for a giant GR-only display
+if(/[?&]mini=1/.test(location.search)) document.body.classList.add("mini");
+
+// ================= settings =================
+// Symmetric per-regime settings. len slider: 30–1000 ms; >1000 = SOLID tone.
+// A regime is also effectively solid when len >= the beep interval.
+var SOLID=1010;
+var S={
+  avg:6, thr:9, vol:40, muteInf:true,
+  bad:  { wave:"sine",     grLo:3,  fLo:180, fHi:400,  rate:2, len:SOLID, vol:80 },
+  good: { wave:"triangle", grHi:14, fLo:600, fHi:1400, rate:2, len:120,   vol:100 }
+};
+try{ var sv=localStorage.getItem("gv7_settings")||localStorage.getItem("gv6_settings")||localStorage.getItem("gv4_settings");
+  if(sv){ var o=JSON.parse(sv);
+  if(o.bad&&o.good){ S.avg=o.avg; S.thr=o.thr; S.vol=o.vol;
+    S.muteInf=(o.muteInf!==undefined)?o.muteInf:o.muteClimb;
+    for(var k in S.bad) if(o.bad[k]!==undefined) S.bad[k]=o.bad[k];
+    for(var k2 in S.good) if(o.good[k2]!==undefined) S.good[k2]=o.good[k2];
+    if(o.bad.mode==="solid") S.bad.len=SOLID;
+    if(o.good.mode==="solid") S.good.len=SOLID; } } }catch(e){}
+// Sanity: pitch must rise with GR in both regimes — swap if stored inverted
+[S.bad,S.good].forEach(function(R){
+  if(R.fLo>R.fHi){ var tmp=R.fLo; R.fLo=R.fHi; R.fHi=tmp; } });
+function save(){ try{ localStorage.setItem("gv7_settings",JSON.stringify(S)); }catch(e){} }
+
+// ---- General bindings ----
+function bindG(id,key){
+  var el=$(id), v=$(id+"V");
+  if(el.type==="checkbox"){ el.checked=S[key];
+    el.onchange=function(){ S[key]=el.checked; save(); applyLive(); }; return; }
+  el.value=S[key]; if(v) v.textContent=S[key];
+  el.oninput=function(){ S[key]=parseFloat(el.value); if(v) v.textContent=el.value;
+    save(); $("avgLbl").textContent="("+S.avg+"s avg)"; applyLive(); };
+}
+bindG("g_avg","avg"); bindG("g_thr","thr"); bindG("g_vol","vol"); bindG("g_mute","muteInf");
+$("avgLbl").textContent="("+S.avg+"s avg)";
+
+// ---- Symmetric regime settings UI (generated identically for both) ----
+function regimeUI(container,reg,grLabel,grMin,grMax){
+  var c=$(container), R=S[reg];
+  function row(html){ var d=document.createElement("div"); d.className="set"; d.innerHTML=html; c.appendChild(d); return d; }
+  // Waveform select
+  var r=row('<label>Tone character</label><select></select><span class="val"></span>');
+  var selW=r.querySelector("select");
+  [["sine","Smooth (sine)"],["triangle","Soft (triangle)"],["square","Classic vario (square)"],["sawtooth","Reedy (saw)"]]
+    .forEach(function(w){ var op=document.createElement("option"); op.value=w[0]; op.textContent=w[1]; selW.appendChild(op); });
+  selW.value=R.wave; selW.onchange=function(){ R.wave=selW.value; save(); applyLive(); };
+  // Sliders — identical set for both regimes
+  function slider(label,key,min,max,step,fmt){
+    var rr=row('<label>'+label+'</label><input type="range" min="'+min+'" max="'+max+'" step="'+step+'"><span class="val"></span>');
+    var inp=rr.querySelector("input"), val=rr.querySelector(".val");
+    function show(v){ val.textContent=fmt?fmt(v):v; }
+    inp.value=R[key]; show(R[key]);
+    inp.oninput=function(){ R[key]=parseFloat(inp.value); show(R[key]); save(); applyLive(); };
+  }
+  slider(grLabel,reg==="bad"?"grLo":"grHi",grMin,grMax,0.5);
+  slider(reg==="bad"?"Pitch at worst GR (Hz)":"Pitch at threshold (Hz)","fLo",80,1500,10);
+  slider(reg==="bad"?"Pitch at threshold (Hz)":"Pitch at best GR (Hz)","fHi",150,3000,10);
+  slider("Beeps per second","rate",0.5,8,0.5);
+  slider("Beep length (ms → solid)","len",30,SOLID,10,function(v){
+    return (v>1000||v>=1000/R.rate)?"SOLID":v; });
+  slider("Volume %","vol",10,150,5);
+}
+regimeUI("badSets","bad","GR at lowest pitch",1,8);
+regimeUI("goodSets","good","GR at highest pitch",8,25);
+
+// ================= audio engine =================
+var AC=window.AudioContext||window.webkitAudioContext;
+var ctx=null, master=null, solidOsc=null, solidGain=null;
+var soundOn=false, beepTimer=null, lastBeepTick=0;
+var currentGR=null, currentVS=0, demoActive=false;
+
+function initAudio(){
+  if(ctx) return;
+  ctx=new AC();
+  master=ctx.createGain(); master.gain.value=0; master.connect(ctx.destination);
+  solidOsc=ctx.createOscillator(); solidGain=ctx.createGain();
+  solidOsc.type="sine"; solidOsc.frequency.value=300; solidGain.gain.value=0;
+  solidOsc.connect(solidGain).connect(master);
+  solidOsc.start();
+  ctx.onstatechange=function(){ log("Audio state → "+ctx.state);
+    if(soundOn&&ctx.state!=="running") ctx.resume(); };
+  log("AudioContext created, state="+ctx.state);
+}
+function regimeOf(gr){
+  if(gr===null) return "none";
+  if(!isFinite(gr)) return "good";
+  return gr<S.thr?"bad":"good";
+}
+function freqFor(reg,gr){
+  var R=S[reg];
+  if(reg==="bad"){
+    var t=clamp((gr-R.grLo)/(S.thr-R.grLo),0,1);
+    return R.fLo+t*(R.fHi-R.fLo);
+  }
+  if(!isFinite(gr)) return R.fHi;
+  var t2=clamp((gr-S.thr)/(R.grHi-S.thr),0,1);
+  return R.fLo+t2*(R.fHi-R.fLo);
+}
+function muted(){
+  if(currentGR===null) return true;
+  if(demoActive) return false;
+  return S.muteInf && !isFinite(currentGR);   // mute only when averaged GR is infinite
+}
+// A regime is "solid" when its length slider is maxed OR beep length >= beep interval
+function effectiveMode(R){
+  return (R.len>1000 || R.len>=1000/R.rate) ? "solid" : "beep";
+}
+
+// Solid tone driver — engages when the active regime's length slider says solid
+function applyLive(){
+  if(!ctx||!soundOn) return;
+  var reg=regimeOf(currentGR);
+  var R=(reg==="bad"||reg==="good")?S[reg]:null;
+  if(R&&effectiveMode(R)==="solid"&&!muted()){
+    if(solidOsc.type!==R.wave) solidOsc.type=R.wave;
+    solidOsc.frequency.setTargetAtTime(freqFor(reg,currentGR),ctx.currentTime,0.08);
+    var v=(S.vol/100)*(R.vol/100)*0.7;
+    solidGain.gain.setTargetAtTime(v,ctx.currentTime,0.05);
+  } else {
+    solidGain.gain.setTargetAtTime(0,ctx.currentTime,0.05);
+  }
+}
+// Beep driver — used by whichever regime is in "beep" mode
+function beepLoop(){
+  if(!soundOn||!ctx) return;
+  lastBeepTick=Date.now();
+  var reg=regimeOf(currentGR);
+  var R=(reg==="bad"||reg==="good")?S[reg]:null;
+  var interval=R?1/R.rate:0.5;
+  if(R&&effectiveMode(R)==="beep"&&!muted()){
+    var t0=ctx.currentTime;
+    var osc=ctx.createOscillator(), g=ctx.createGain();
+    osc.type=R.wave;
+    osc.frequency.value=freqFor(reg,currentGR);
+    var vol=(S.vol/100)*(R.vol/100)*0.8;
+    var lenS=Math.min(R.len/1000,interval*0.9);
+    g.gain.setValueAtTime(0.0001,t0);
+    g.gain.exponentialRampToValueAtTime(Math.max(vol,0.001),t0+0.012);
+    g.gain.setValueAtTime(Math.max(vol,0.001),t0+lenS*0.7);
+    g.gain.exponentialRampToValueAtTime(0.0001,t0+lenS);
+    osc.connect(g).connect(master);
+    osc.start(t0); osc.stop(t0+lenS+0.02);
+  }
+  beepTimer=setTimeout(beepLoop,interval*1000);
+}
+function setSound(on){
+  initAudio(); ctx.resume();
+  soundOn=on; master.gain.value=on?1:0;
+  var b=$("soundBtn");
+  b.textContent=on?"🔊 SOUND ON — TAP TO MUTE":"🔇 SOUND OFF — TAP TO ENABLE";
+  b.className=on?"on":"";
+  clearTimeout(beepTimer);
+  if(on){ beepLoop(); applyLive(); }
+  else if(solidGain) solidGain.gain.setTargetAtTime(0,ctx.currentTime,0.02);
+  $("sndDot").className=on?"on":"";
+  log("Sound "+(on?"ON":"OFF"));
+}
+$("soundBtn").onclick=function(){ setSound(!soundOn); };
+// Tap the GR number itself to toggle audio (for minimal widget layouts)
+$("grCard").onclick=function(){ setSound(!soundOn); };
+
+// ---- watchdog: auto-recover suspended audio / stalled loop ----
+// SAFETY: only acts while the page is actually VISIBLE on screen.
+// When hidden (XCTrack backgrounded, other page shown), audio is hard-muted
+// so the phone can never beep from the background.
+function pageVisible(){ return document.visibilityState==="visible"; }
+setInterval(function(){
+  if(!soundOn||!ctx) return;
+  if(!pageVisible()){ hardMute(true); return; }
+  if(ctx.state!=="running"){
+    log("Watchdog: state="+ctx.state+" → resume()");
+    ctx.resume().then(function(){ log("Watchdog: resumed → "+ctx.state); });
+  }
+  if(Date.now()-lastBeepTick>3000){
+    log("Watchdog: beep loop stalled → restart");
+    clearTimeout(beepTimer); beepLoop();
+  }
+},1500);
+function hardMute(on){
+  if(!ctx) return;
+  master.gain.value=(on||!soundOn)?0:1;
+  if(on){ try{ ctx.suspend(); }catch(e){} }
+}
+document.addEventListener("visibilitychange",function(){
+  log("Visibility: "+document.visibilityState);
+  if(!ctx) return;
+  if(pageVisible()){
+    if(soundOn){ ctx.resume(); master.gain.value=1; log("Visible → audio restored"); }
+  } else {
+    hardMute(true); log("Hidden → audio hard-muted");
+  }
+});
+window.addEventListener("pagehide",function(){ hardMute(true); });
+window.addEventListener("blur",function(){ if(!pageVisible()) hardMute(true); });
+
+// ================= demo =================
+$("demoBtn").onclick=function(){
+  var wasOn=soundOn;
+  if(!wasOn) setSound(true);
+  demoActive=true;
+  var start=Date.now(), dur=10000, savedGR=currentGR, savedVS=currentVS;
+  log("Demo: GR 3 → 14 over 10s (threshold "+S.thr+")");
+  var iv=setInterval(function(){
+    var p=(Date.now()-start)/dur;
+    if(p>=1){ clearInterval(iv); demoActive=false;
+      currentGR=savedGR; currentVS=savedVS; applyLive();
+      if(!wasOn) setSound(false);
+      log("Demo done"); return; }
+    currentGR=3+p*(14-3); currentVS=-1;
+    updateGRDisplay(); applyLive();
+  },100);
+};
+
+// ================= data acquisition =================
+var samples=[]; var tickCount=0, lastHzT=Date.now(), gotData=false;
+function poll(){
+  var raw=null;
+  try{ if(window.XCTrack&&XCTrack.getLocation) raw=XCTrack.getLocation(); }
+  catch(e){ log("getLocation err: "+e.message); return; }
+  if(raw&&raw!=="null"){
+    try{
+      var d=(typeof raw==="string")?JSON.parse(raw):raw;
+      var alt=(d.stdBaroAlt!=null)?d.stdBaroAlt:d.altGps;
+      $("altSrc").textContent=(d.stdBaroAlt!=null)?"baro":"gps";
+      var spd=(d.speedComputed!=null)?d.speedComputed:d.speedGps;
+      if(!gotData){ gotData=true; log("First sample: "+JSON.stringify(d).substr(0,300)); }
+      ingest(Date.now(),alt,spd);
+    }catch(e){ log("parse err: "+e.message); }
+  } else if(!gotData){
+    $("status").textContent="No XCTrack data — check 'Allow web page to access XCTrack data'. Waiting…";
+  }
+}
+function ingest(t,alt,spd){
+  if(alt==null) return;
+  samples.push({t:t,alt:alt,spd:spd||0});
+  var horizon=Math.max(S.avg,3)*1000+500;
+  while(samples.length&&t-samples[0].t>horizon) samples.shift();
+  tickCount++;
+  var now=Date.now();
+  if(now-lastHzT>=2000){
+    $("hz").innerHTML=(tickCount/((now-lastHzT)/1000)).toFixed(1)+'<span class="unit"> Hz</span>';
+    tickCount=0; lastHzT=now;
+  }
+  compute(t,alt,spd);
+}
+function windowStats(ms){
+  var t=samples[samples.length-1].t, first=null;
+  for(var i=samples.length-1;i>=0;i--){ if(t-samples[i].t<=ms) first=samples[i]; else break; }
+  if(!first) first=samples[0];
+  return { dt:(t-first.t)/1000, dAlt:samples[samples.length-1].alt-first.alt };
+}
+function compute(t,alt,spd){
+  if(samples.length<3) return;
+  var w1=windowStats(1000);
+  currentVS=w1.dt>0.3?w1.dAlt/w1.dt:0;
+  var wa=windowStats(S.avg*1000), gr=null;
+  if(wa.dt>Math.min(S.avg*0.6,2)){
+    var sink=-wa.dAlt/wa.dt, avgSpd=0,n=0;
+    for(var i=0;i<samples.length;i++){ if(t-samples[i].t<=S.avg*1000){ avgSpd+=samples[i].spd; n++; } }
+    avgSpd=n?avgSpd/n:0;
+    gr=(sink>0.05)?(avgSpd/sink):Infinity;
+  }
+  if(!demoActive){ currentGR=gr; updateGRDisplay(); applyLive(); }
+  $("vs").innerHTML=(currentVS>=0?"+":"")+currentVS.toFixed(1)+'<span class="unit"> m/s</span>';
+  $("spd").innerHTML=((spd||0)*3.6).toFixed(0)+'<span class="unit"> km/h</span>';
+  $("alt").innerHTML=alt.toFixed(0)+'<span class="unit"> m</span>';
+  $("status").textContent="Live · "+new Date(t).toLocaleTimeString();
+}
+function updateGRDisplay(){
+  var gr=currentGR, reg=regimeOf(gr);
+  var el=$("gr");
+  el.textContent=gr===null?"–":(!isFinite(gr)?"∞":gr.toFixed(1));
+  el.className="big "+(reg==="good"?"good":reg==="bad"?"bad":"");
+  var r=$("regime");
+  r.textContent=reg==="good"?"GOOD AIR":reg==="bad"?"BAD AIR":"–";
+  r.className=reg==="good"?"good":reg==="bad"?"bad":"";
+}
+setInterval(poll,200);
+log("v0.10: mini mode (?mini=1) — giant GR-only display for the flight screen.");
+
+// ================= offline caching =================
+// Registers a service worker so the page keeps working with no signal,
+// once it has loaded successfully at least once over the network.
+// Some embedded WebViews don't support Service Worker — this fails silently
+// and the page still works normally online either way.
+if("serviceWorker" in navigator){
+  navigator.serviceWorker.register("sw.js").then(function(reg){
+    log("Offline cache: registered (scope "+reg.scope+")");
+  }).catch(function(e){
+    log("Offline cache: not available in this WebView ("+e.message+")");
+  });
+} else {
+  log("Offline cache: serviceWorker API not present in this WebView");
+}
+</script>
+</body>
+</html>

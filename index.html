@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Glide Vario v0.10</title>
+<title>Glide Vario v0.11</title>
 <style>
   :root { --bg:#000; --ink:#FFF; --ok:#00E676; --bad:#FF5252; --dim:#8A8A8A; --acc:#40C4FF; --warn:#FFB300; }
   * { margin:0; padding:0; box-sizing:border-box; }
@@ -28,16 +28,20 @@
   #sndDot.on { color:var(--ok); animation:pulse 2s infinite; }
   @keyframes pulse { 0%,100%{opacity:1;} 50%{opacity:.35;} }
   #grCard { cursor:pointer; -webkit-tap-highlight-color:rgba(64,196,255,.25); }
-  /* ---- MINI MODE (?mini=1): giant GR number only, fills the widget ---- */
-  body.mini { padding:0; overflow:hidden; }
+  /* ---- MINI MODE (?mini=1): giant GR number on white, no text ---- */
+  body.mini { padding:0; overflow:hidden; background:#FFFFFF; }
   body.mini #status, body.mini .row.mid, body.mini button,
   body.mini details, body.mini #varioCard { display:none; }
   body.mini .row.top { margin:0; gap:0; height:100vh; }
-  body.mini #grCard { height:100vh; border:none; border-radius:0; padding:0;
+  body.mini #grCard { height:100vh; border:none; border-radius:0; padding:0; background:#FFFFFF;
     display:flex; flex-direction:column; align-items:center; justify-content:center; }
-  body.mini .label { font-size:4vmin; height:auto; line-height:1.2; }
-  body.mini .big { font-size:42vmin; height:auto; line-height:1; }
-  body.mini #sndDot { font-size:8vmin; top:2vmin; right:3vmin; }
+  body.mini .label { visibility:hidden; height:0; }          /* no text in mini */
+  body.mini .label #sndDot { visibility:visible; }           /* …but keep the audio dot */
+  body.mini .big { font-size:48vmin; height:auto; line-height:1; color:#000; }
+  body.mini #gr.good { color:#00A551; }                      /* readable on white */
+  body.mini #gr.bad  { color:#EF6C00; }
+  body.mini #sndDot { font-size:9vmin; top:1vmin; right:2vmin; color:#CCC; }
+  body.mini #sndDot.on { color:#00A551; }
   #status { font-size:13px; color:var(--dim); margin-bottom:8px; }
   button { padding:14px; font-size:16px; font-weight:700; border:none; border-radius:10px;
            background:#1565C0; color:#fff; width:100%; margin-bottom:8px; }
@@ -267,11 +271,43 @@ function setSound(on){
   if(on){ beepLoop(); applyLive(); }
   else if(solidGain) solidGain.gain.setTargetAtTime(0,ctx.currentTime,0.02);
   $("sndDot").className=on?"on":"";
+  persistAudio(on);
   log("Sound "+(on?"ON":"OFF"));
 }
 $("soundBtn").onclick=function(){ setSound(!soundOn); };
 // Tap the GR number itself to toggle audio (for minimal widget layouts)
 $("grCard").onclick=function(){ setSound(!soundOn); };
+
+// ---- shared audio state: remembered and restored across widgets/reloads ----
+function persistAudio(on){ try{ localStorage.setItem("gv_audio",on?"1":"0"); }catch(e){} }
+try{
+  if(localStorage.getItem("gv_audio")==="1"){
+    setTimeout(function(){ if(!soundOn){ setSound(true); log("Audio auto-restored from saved state"); } },400);
+  }
+}catch(e){}
+
+// ---- live settings sync: pick up changes made in the other widget ----
+var lastSettingsJson=JSON.stringify(S);
+setInterval(function(){
+  try{
+    var sv=localStorage.getItem("gv7_settings");
+    if(sv&&sv!==lastSettingsJson){
+      var o=JSON.parse(sv);
+      if(o.bad&&o.good){
+        S.avg=o.avg; S.thr=o.thr; S.vol=o.vol; S.muteInf=o.muteInf;
+        for(var k in S.bad) if(o.bad[k]!==undefined) S.bad[k]=o.bad[k];
+        for(var k2 in S.good) if(o.good[k2]!==undefined) S.good[k2]=o.good[k2];
+        lastSettingsJson=sv;
+        $("avgLbl").textContent="("+S.avg+"s avg)";
+        applyLive();
+        log("Settings synced from other widget");
+      }
+    } else if(sv) lastSettingsJson=sv;
+    var au=localStorage.getItem("gv_audio");
+    if(au==="1"&&!soundOn){ setSound(true); log("Audio synced ON from other widget"); }
+    else if(au==="0"&&soundOn){ setSound(false); log("Audio synced OFF from other widget"); }
+  }catch(e){}
+},2000);
 
 // ---- watchdog: auto-recover suspended audio / stalled loop ----
 // SAFETY: only acts while the page is actually VISIBLE on screen.
@@ -390,7 +426,7 @@ function updateGRDisplay(){
   r.className=reg==="good"?"good":reg==="bad"?"bad":"";
 }
 setInterval(poll,200);
-log("v0.10: mini mode (?mini=1) — giant GR-only display for the flight screen.");
+log("v0.11: white mini mode (number only), live settings sync, shared auto-restoring audio state.");
 
 // ================= offline caching =================
 // Registers a service worker so the page keeps working with no signal,

@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Glide Vario v0.11</title>
+<title>Glide Vario v0.13</title>
 <style>
   :root { --bg:#000; --ink:#FFF; --ok:#00E676; --bad:#FF5252; --dim:#8A8A8A; --acc:#40C4FF; --warn:#FFB300; }
   * { margin:0; padding:0; box-sizing:border-box; }
@@ -12,8 +12,8 @@
   .row { display:flex; gap:8px; margin-bottom:8px; }
   .card { flex:1 1 0; min-width:0; border:2px solid #333; border-radius:10px; padding:8px 10px; overflow:hidden; }
   /* Locked geometry: values changing must never move or resize anything */
-  .row.top .card { height:96px; }
-  .row.mid .card { height:72px; }
+  .row.r1 .card { height:96px; }
+  .row.r2 .card { height:72px; }
   .label { font-size:11px; text-transform:uppercase; letter-spacing:.08em; color:var(--dim);
            white-space:nowrap; overflow:hidden; height:16px; line-height:16px; }
   .big { font-size:44px; font-weight:800; height:56px; line-height:56px;
@@ -28,24 +28,31 @@
   #sndDot.on { color:var(--ok); animation:pulse 2s infinite; }
   @keyframes pulse { 0%,100%{opacity:1;} 50%{opacity:.35;} }
   #grCard { cursor:pointer; -webkit-tap-highlight-color:rgba(64,196,255,.25); }
-  /* ---- MINI MODE (?mini=1): giant GR number on white, no text ---- */
-  body.mini { padding:0; overflow:hidden; background:#FFFFFF; }
-  body.mini #status, body.mini .row.mid, body.mini button,
+  /* ---- MINI MODE (?mini=1): giant GR number, transparent bg, no text ---- */
+  html.mini, body.mini { padding:0; overflow:hidden; background:transparent; }
+  body.mini #status, body.mini .row.r2, body.mini button, body.mini .btnrow,
   body.mini details, body.mini #varioCard { display:none; }
-  body.mini .row.top { margin:0; gap:0; height:100vh; }
-  body.mini #grCard { height:100vh; border:none; border-radius:0; padding:0; background:#FFFFFF;
+  body.mini .row.r1 { margin:0; gap:0; height:100vh; }
+  body.mini #grCard { height:100vh; border:none; border-radius:0; padding:0; background:transparent;
     display:flex; flex-direction:column; align-items:center; justify-content:center; }
   body.mini .label { visibility:hidden; height:0; }          /* no text in mini */
   body.mini .label #sndDot { visibility:visible; }           /* …but keep the audio dot */
-  body.mini .big { font-size:48vmin; height:auto; line-height:1; color:#000; }
-  body.mini #gr.good { color:#00A551; }                      /* readable on white */
+  body.mini .big { font-size:48vmin; height:auto; line-height:1; color:#000;
+    /* white halo so the number reads over the map (XCTrack-widget style) */
+    text-shadow:-.045em -.045em 0 #fff, .045em -.045em 0 #fff,
+                -.045em .045em 0 #fff, .045em .045em 0 #fff,
+                0 -.06em 0 #fff, 0 .06em 0 #fff, -.06em 0 0 #fff, .06em 0 0 #fff; }
+  body.mini #gr.good { color:#00A551; }                      /* readable on light bg */
   body.mini #gr.bad  { color:#EF6C00; }
-  body.mini #sndDot { font-size:9vmin; top:1vmin; right:2vmin; color:#CCC; }
+  body.mini #sndDot { font-size:9vmin; top:1vmin; right:2vmin; color:#999;
+    text-shadow:0 0 .12em #fff, 0 0 .2em #fff; }
   body.mini #sndDot.on { color:#00A551; }
   #status { font-size:13px; color:var(--dim); margin-bottom:8px; }
-  button { padding:14px; font-size:16px; font-weight:700; border:none; border-radius:10px;
+  button { padding:8px; font-size:13px; font-weight:700; border:none; border-radius:8px;
            background:#1565C0; color:#fff; width:100%; margin-bottom:8px; }
   button.on { background:#2E7D32; }
+  .btnrow { display:flex; gap:8px; margin-bottom:8px; }
+  .btnrow button { margin:0; flex:1; }
   details { border:2px solid #333; border-radius:10px; padding:8px 10px; margin-bottom:8px; }
   summary { font-size:13px; text-transform:uppercase; letter-spacing:.08em; color:var(--dim); }
   .sec { font-size:12px; text-transform:uppercase; letter-spacing:.08em; color:var(--acc);
@@ -64,7 +71,7 @@
 
 <div id="status">Waiting for XCTrack data…</div>
 
-<div class="row top">
+<div class="row r1">
   <div class="card" id="grCard" style="position:relative;">
     <div class="label">Glide ratio <span id="avgLbl"></span> · <span id="regime">–</span>
       <span id="sndDot" title="audio state">●</span></div>
@@ -76,14 +83,16 @@
   </div>
 </div>
 
-<div class="row mid">
+<div class="row r2">
   <div class="card"><div class="label">Speed</div><div class="mid" id="spd">–<span class="unit"> km/h</span></div></div>
   <div class="card"><div class="label">Alt (<span id="altSrc">?</span>)</div><div class="mid" id="alt">–<span class="unit"> m</span></div></div>
   <div class="card"><div class="label">Data rate</div><div class="mid" id="hz">–<span class="unit"> Hz</span></div></div>
 </div>
 
-<button id="soundBtn">🔇 SOUND OFF — TAP TO ENABLE</button>
-<button id="demoBtn">DEMO: SWEEP GR 3 → 14 (hear both regimes)</button>
+<div class="btnrow">
+  <button id="soundBtn">🔇 SOUND OFF</button>
+  <button id="demoBtn">DEMO SWEEP</button>
+</div>
 
 <details>
   <summary>Sound &amp; averaging settings</summary>
@@ -116,7 +125,10 @@ window.onerror=function(m,s,l){ log("ERROR: "+m+" @"+l); return false; };
 function $(id){ return document.getElementById(id); }
 function clamp(x,a,b){ return Math.max(a,Math.min(b,x)); }
 // Mini mode: add ?mini=1 to the URL for a giant GR-only display
-if(/[?&]mini=1/.test(location.search)) document.body.classList.add("mini");
+if(/[?&]mini=1/.test(location.search)){
+  document.body.classList.add("mini");
+  document.documentElement.classList.add("mini");
+}
 
 // ================= settings =================
 // Symmetric per-regime settings. len slider: 30–1000 ms; >1000 = SOLID tone.
@@ -265,7 +277,7 @@ function setSound(on){
   initAudio(); ctx.resume();
   soundOn=on; master.gain.value=on?1:0;
   var b=$("soundBtn");
-  b.textContent=on?"🔊 SOUND ON — TAP TO MUTE":"🔇 SOUND OFF — TAP TO ENABLE";
+  b.textContent=on?"🔊 SOUND ON":"🔇 SOUND OFF";
   b.className=on?"on":"";
   clearTimeout(beepTimer);
   if(on){ beepLoop(); applyLive(); }
@@ -426,7 +438,7 @@ function updateGRDisplay(){
   r.className=reg==="good"?"good":reg==="bad"?"bad":"";
 }
 setInterval(poll,200);
-log("v0.11: white mini mode (number only), live settings sync, shared auto-restoring audio state.");
+log("v0.13: fixed layout overlap (CSS class collision squashing the middle row).");
 
 // ================= offline caching =================
 // Registers a service worker so the page keeps working with no signal,

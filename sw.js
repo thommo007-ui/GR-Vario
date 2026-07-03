@@ -2,10 +2,10 @@
 // Strategy: on first successful load, cache this page. From then on,
 // try the network first (to pick up updates), but if that fails
 // (no signal in flight) fall back to the cached copy instantly.
-var CACHE = "glide-vario-cache-v08";
+var CACHE = "glide-vario-cache-v09";
 var ASSETS = [
   "./",
-  "./glide-vario-v08.html"
+  "./index.html"
 ];
 
 self.addEventListener("install", function (e) {
@@ -38,7 +38,7 @@ self.addEventListener("fetch", function (e) {
       })
       .catch(function () {
         return caches.match(e.request).then(function (cached) {
-          return cached || caches.match("./glide-vario-v08.html");
+          return cached || caches.match("./index.html");
         });
       })
   );

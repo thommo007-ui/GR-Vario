@@ -2,7 +2,7 @@
 // Strategy: on first successful load, cache this page. From then on,
 // try the network first (to pick up updates), but if that fails
 // (no signal in flight) fall back to the cached copy instantly.
-var CACHE = "glide-vario-cache-v22";
+var CACHE = "glide-vario-cache-v23";
 var ASSETS = [
   "./",
   "./index.html"
@@ -30,7 +30,7 @@ self.addEventListener("activate", function (e) {
 self.addEventListener("fetch", function (e) {
   if (e.request.method !== "GET") return;
   e.respondWith(
-    fetch(e.request)
+    fetch(e.request, { cache: "no-cache" })   // revalidate: never serve stale HTTP cache when online
       .then(function (networkResponse) {
         var copy = networkResponse.clone();
         caches.open(CACHE).then(function (c) { c.put(e.request, copy); });

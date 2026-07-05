@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>Glide Vario v0.22</title>
+<title>Glide Vario v0.23</title>
 <style>
   :root { --bg:#0A0D11; --ink:#F2F5F7; --ok:#2FD97B; --dim:#7C8894; --acc:#4FC3F7; --warn:#FFB74D;
           --sky:#4FC3F7; --green:#2FBE6A; --amber:#F09B2E; --mag:#E36BD6;
@@ -109,11 +109,16 @@
   body.mini #sndDot { font-size:9vmin; top:1vmin; right:2vmin; color:#999; animation:none;
     text-shadow:0 0 .12em #fff, 0 0 .2em #fff; }
   body.mini #sndDot.on { color:#00A551; }
+  #miniVer { display:none; }
+  body.mini #miniVer { display:block; position:fixed; bottom:1vmin; left:2vmin;
+    font-size:3.5vmin; color:#999; font-family:ui-monospace,monospace;
+    text-shadow:0 0 .15em #fff; opacity:1; transition:opacity 2s; z-index:9; }
 </style>
 </head>
 <body>
 
 <div id="status">Waiting for XCTrack data…</div>
+<div id="miniVer">v0.23</div>
 
 <div class="row r1">
   <div class="card" id="grCard" style="position:relative;">
@@ -868,18 +873,27 @@ function updateGRDisplay(){
 }
 setInterval(poll,200);
 edResize();
-log("v0.22: designer stale-settings bug fixed; buttons retired; refreshed interface.");
+log("v0.23: self-updating widgets (auto-reload on new version) + mini version tag.");
 
 // ================= offline caching =================
 if("serviceWorker" in navigator){
   navigator.serviceWorker.register("sw.js").then(function(reg){
     log("Offline cache: registered (scope "+reg.scope+")");
+    try{ reg.update(); }catch(e){}                 // check for a newer version now
   }).catch(function(e){
     log("Offline cache: not available ("+e.message+")");
+  });
+  var reloadedForUpdate=false;
+  navigator.serviceWorker.addEventListener("controllerchange",function(){
+    if(reloadedForUpdate) return; reloadedForUpdate=true;
+    log("New version installed → reloading");
+    setTimeout(function(){ location.reload(); },400);
   });
 } else {
   log("Offline cache: serviceWorker API not present");
 }
+// fade the mini version tag after a few seconds
+setTimeout(function(){ var mv=$("miniVer"); if(mv) mv.style.opacity="0"; },6000);
 </script>
 </body>
 </html>

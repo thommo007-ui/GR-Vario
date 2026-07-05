@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>Glide Vario v0.24</title>
+<title>Glide Vario v0.25</title>
 <style>
   :root { --bg:#0A0D11; --ink:#F2F5F7; --ok:#2FD97B; --dim:#7C8894; --acc:#4FC3F7; --warn:#FFB74D;
           --sky:#4FC3F7; --green:#2FBE6A; --amber:#F09B2E; --mag:#E36BD6;
@@ -59,11 +59,22 @@
          word-break:break-all; color:#8FA0AC; max-height:26vh; overflow-y:auto; margin-top:8px; }
   /* ---- donation ---- */
   #support { text-align:center; margin:16px 0 8px; }
-  #support a { display:inline-block; text-decoration:none; font-size:13.5px; font-weight:700;
+  #supBtn { display:inline-block; font-size:13.5px; font-weight:700; cursor:pointer;
     color:#FFD79B; background:linear-gradient(180deg,#2E2812,#221D0C);
     border:1px solid rgba(255,215,155,.25); border-radius:999px;
     padding:10px 20px; -webkit-tap-highlight-color:rgba(255,215,155,.2); }
-  #support a:active { background:#3A320F; }
+  #supBtn:active { background:#3A320F; }
+  #supPanel { display:none; margin:10px auto 0; max-width:320px; padding:12px;
+    background:linear-gradient(180deg,var(--panel),var(--panel2));
+    border:1px solid var(--line); border-radius:14px; }
+  #supPanel.open { display:block; }
+  .supUrl { font-family:ui-monospace,Menlo,monospace; font-size:16px; font-weight:700;
+    color:#FFD79B; -webkit-user-select:text; user-select:text; padding:4px 0; }
+  .supRow { margin-top:8px; }
+  .supCopy { display:inline-block; font-size:12.5px; font-weight:700; cursor:pointer;
+    color:var(--acc); border:1px solid rgba(79,195,247,.35); border-radius:999px;
+    padding:7px 16px; -webkit-tap-highlight-color:rgba(79,195,247,.2); }
+  .supCopy:active { background:rgba(79,195,247,.12); }
   #support .note { font-size:10.5px; color:var(--dim); margin-top:7px; letter-spacing:.04em; }
   /* ---- curve editor ---- */
   #edWrap { overflow:hidden; margin-top:12px; border-radius:14px; }
@@ -118,7 +129,7 @@
 <body>
 
 <div id="status">Waiting for XCTrack data…</div>
-<div id="miniVer">v0.24</div>
+<div id="miniVer">v0.25</div>
 
 <div class="row r1">
   <div class="card" id="grCard" style="position:relative;">
@@ -179,7 +190,14 @@
 </details>
 
 <div id="support">
-  <a href="https://paypal.me/irluke/5" target="_blank" rel="noopener">☕ Support this project — shout Luke a coffee</a>
+  <div id="supBtn" role="button">☕ Support this project — shout Luke a coffee</div>
+  <div id="supPanel">
+    <div class="supUrl" id="supUrl">paypal.me/irluke/5</div>
+    <div class="supRow">
+      <div class="supCopy" id="supCopy">Copy link</div>
+    </div>
+    <div class="note">Open your browser or PayPal app and paste — payments can't open inside XCTrack.</div>
+  </div>
   <div class="note">Free to use · donations keep it flying</div>
 </div>
 
@@ -887,7 +905,7 @@ function updateGRDisplay(){
 }
 setInterval(poll,200);
 edResize();
-log("v0.24: click-free audio — all mute/unmute paths fade instead of snapping.");
+log("v0.25: support link no longer navigates (WebView-safe copy panel).");
 
 // ================= offline caching =================
 if("serviceWorker" in navigator){
@@ -906,6 +924,27 @@ if("serviceWorker" in navigator){
 } else {
   log("Offline cache: serviceWorker API not present");
 }
+// ---- support panel: no navigation (XCTrack WebView has no back button) ----
+$("supBtn").onclick=function(){ $("supPanel").classList.toggle("open"); };
+$("supCopy").onclick=function(){
+  var url="https://paypal.me/irluke/5", btn=this;
+  function done(ok){ btn.textContent=ok?"Copied ✓":"Copy failed — long-press the link above";
+    setTimeout(function(){ btn.textContent="Copy link"; },2500); }
+  if(navigator.clipboard&&navigator.clipboard.writeText){
+    navigator.clipboard.writeText(url).then(function(){ done(true); },
+      function(){ fallbackCopy(url,done); });
+  } else fallbackCopy(url,done);
+  function fallbackCopy(txt,cb){
+    try{
+      var ta=document.createElement("textarea");
+      ta.value=txt; ta.style.position="fixed"; ta.style.opacity="0";
+      document.body.appendChild(ta); ta.select();
+      var ok=document.execCommand("copy");
+      document.body.removeChild(ta); cb(ok);
+    }catch(e){ cb(false); }
+  }
+};
+
 // fade the mini version tag after a few seconds
 setTimeout(function(){ var mv=$("miniVer"); if(mv) mv.style.opacity="0"; },6000);
 </script>

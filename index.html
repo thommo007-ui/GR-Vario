@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>Glide Vario v0.25</title>
+<title>Glide Vario v0.27</title>
 <style>
   :root { --bg:#0A0D11; --ink:#F2F5F7; --ok:#2FD97B; --dim:#7C8894; --acc:#4FC3F7; --warn:#FFB74D;
           --sky:#4FC3F7; --green:#2FBE6A; --amber:#F09B2E; --mag:#E36BD6;
@@ -68,6 +68,9 @@
     background:linear-gradient(180deg,var(--panel),var(--panel2));
     border:1px solid var(--line); border-radius:14px; }
   #supPanel.open { display:block; }
+  .supFlex { display:flex; align-items:center; gap:12px; }
+  #supQR { width:96px; height:96px; border-radius:10px; background:#fff; padding:4px; flex:none; }
+  .supRight { flex:1; text-align:left; }
   .supUrl { font-family:ui-monospace,Menlo,monospace; font-size:16px; font-weight:700;
     color:#FFD79B; -webkit-user-select:text; user-select:text; padding:4px 0; }
   .supRow { margin-top:8px; }
@@ -115,6 +118,10 @@
     -.045em -.045em 0 #fff, .045em -.045em 0 #fff,
     -.045em .045em 0 #fff, .045em .045em 0 #fff,
     0 -.06em 0 #fff, 0 .06em 0 #fff, -.06em 0 0 #fff, .06em 0 0 #fff; }
+  body.mini #gr, body.mini #gr.good, body.mini #gr.bad { text-shadow:
+    -.045em -.045em 0 #fff, .045em -.045em 0 #fff,
+    -.045em .045em 0 #fff, .045em .045em 0 #fff,
+    0 -.06em 0 #fff, 0 .06em 0 #fff, -.06em 0 0 #fff, .06em 0 0 #fff; }
   body.mini #gr.good { color:#00A551; }
   body.mini #gr.bad  { color:#EF6C00; }
   body.mini #sndDot { font-size:9vmin; top:1vmin; right:2vmin; color:#999; animation:none;
@@ -129,7 +136,7 @@
 <body>
 
 <div id="status">Waiting for XCTrack data…</div>
-<div id="miniVer">v0.25</div>
+<div id="miniVer">v0.27</div>
 
 <div class="row r1">
   <div class="card" id="grCard" style="position:relative;">
@@ -158,6 +165,7 @@
   <div class="set"><label>GR averaging (s)</label><input type="range" id="g_avg" min="1" max="30" step="1"><span class="val" id="g_avgV"></span></div>
   <div class="set"><label>Master volume</label><input type="range" id="g_vol" min="0" max="100" step="5"><span class="val" id="g_volV"></span></div>
   <div class="set"><label>Mute when GR infinite (no net sink)</label><input type="checkbox" id="g_mute"><span class="val"></span></div>
+  <div class="set"><label>GR altitude source</label><select id="g_altsrc" style="flex:2;background:#0B1015;color:#fff;border:1px solid var(--line);border-radius:10px;padding:8px;font-size:13px;"><option value="baro">Baro (smooth)</option><option value="gps">GPS (compare with XCTrack)</option></select><span class="val"></span></div>
 
   <div class="sec">Tone curves — drag dots &amp; the threshold line</div>
   <div id="edWrap">
@@ -192,11 +200,14 @@
 <div id="support">
   <div id="supBtn" role="button">☕ Support this project — shout Luke a coffee</div>
   <div id="supPanel">
-    <div class="supUrl" id="supUrl">paypal.me/irluke/5</div>
-    <div class="supRow">
-      <div class="supCopy" id="supCopy">Copy link</div>
+    <div class="supFlex">
+      <img id="supQR" alt="PayPal QR" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAK4AAACuAQAAAACHdwtDAAABTUlEQVR4nO2XsY1cMQxEHy0BG0qAC9hS+DtwScZ2pl/KFWCAP1xAwjjQJcbdhV4GNjNNwgE5Q1ImPon17TMU/g0YBUAJn00lHACfOQRdEm3c3gwokiKlJhUwnOvH6jy/R716+ZXatPYowS1emfIr2MFfnPIjLA2u49mZ10HTTGNymhlwCyosM+tJLn6PMfESvh85Lr6OCtYpGhNWp15Hlk6W2cQ3n8r57GndAd8zdiMlUmYsCmhDUpEmSCNNJ20AlfNpRwmvOFeaToBnp+ix7o/VWT1tF0+8aNDG7k6aTqTZNKGEK5gbSarJtg9NCsBny1KseO8RFVdQ3pIUe5mZVc7KOfe98tdTfgXvm01cP60zM5lgdgAlmJzWWfeRe2iv+4M2FNSXpfwzFL73Dk3gE2bObY/C99JReAmfeOI8AUo428Iaypmx9v83+iF+AwHpzZFyNnHqAAAAAElFTkSuQmCC">
+      <div class="supRight">
+        <div class="supUrl" id="supUrl">paypal.me/irluke/5</div>
+        <div class="supRow"><div class="supCopy" id="supCopy">Copy link</div></div>
+      </div>
     </div>
-    <div class="note">Open your browser or PayPal app and paste — payments can't open inside XCTrack.</div>
+    <div class="note">Scan with another phone, or copy &amp; paste in your browser — payments can't open inside XCTrack.</div>
   </div>
   <div class="note">Free to use · donations keep it flying</div>
 </div>
@@ -222,7 +233,7 @@ var GR_MIN=2, GR_MAX=20, EPS=0.01;
 function defaults(){
   var thr=9;
   return {
-    avg:6, thr:thr, vol:40, muteInf:true,
+    avg:6, thr:thr, vol:40, muteInf:true, altSrc:"baro",
     curves:{
       pitch:[{gr:2,v:175},{gr:5,v:300},{gr:thr-EPS,v:300},{gr:thr+EPS,v:450},{gr:16.5,v:575},{gr:20,v:625}],
       rate: [{gr:2,v:1.25},{gr:5.5,v:1.25},{gr:thr-EPS,v:1.25},{gr:thr+EPS,v:1.25},{gr:16,v:1.5},{gr:20,v:1.75}],
@@ -275,14 +286,19 @@ function bindG(id,key){
     el.onchange=function(){ S[key]=el.checked; save(); applyLive(); }; return; }
   el.value=S[key]; if(v) v.textContent=S[key];
   el.oninput=function(){ S[key]=parseFloat(el.value); if(v) v.textContent=el.value;
-    save(); $("avgLbl").textContent="("+S.avg+"s avg)"; applyLive(); };
+    save(); $("avgLbl").textContent="("+S.avg+"s avg)";
+    if(key==="vol"&&outVol&&ctx) outVol.gain.setTargetAtTime(volGain(S.vol),ctx.currentTime,0.03);
+    applyLive(); };
 }
 bindG("g_avg","avg"); bindG("g_vol","vol"); bindG("g_mute","muteInf");
+$("g_altsrc").value=S.altSrc||"baro";
+$("g_altsrc").onchange=function(){ S.altSrc=this.value; save(); };
 $("avgLbl").textContent="("+S.avg+"s avg)";
 function refreshGeneralUI(){
   $("g_avg").value=S.avg; $("g_avgV").textContent=S.avg;
   $("g_vol").value=S.vol; $("g_volV").textContent=S.vol;
   $("g_mute").checked=S.muteInf;
+  $("g_altsrc").value=S.altSrc||"baro";
   $("avgLbl").textContent="("+S.avg+"s avg)";
 }
 
@@ -548,7 +564,11 @@ function refreshSdUI(){
 
 // ================= audio engine =================
 var AC=window.AudioContext||window.webkitAudioContext;
-var ctx=null, master=null, solidGain=null;
+var ctx=null, master=null, solidGain=null, outVol=null;
+function volGain(pct){                              // 0..100 → perceptual gain (~x^1.6)
+  var x=Math.max(0,Math.min(100,pct))/100;
+  return Math.pow(x,1.6);
+}
 var soundOn=false, beepTimer=null, lastBeepTick=0;
 var currentGR=null, currentVS=0, demoActive=false;
 function fadeMaster(v,dur,cb){
@@ -562,11 +582,13 @@ function fadeMaster(v,dur,cb){
 function initAudio(){
   if(ctx) return;
   ctx=new AC();
-  master=ctx.createGain(); master.gain.value=0;
+  master=ctx.createGain(); master.gain.value=0;   // mute-gate (fades, background hard-mute)
   var lim=ctx.createDynamicsCompressor();
-  lim.threshold.value=-12; lim.knee.value=8; lim.ratio.value=3;
+  lim.threshold.value=-3; lim.knee.value=3; lim.ratio.value=3;   // safety limiter only
   lim.attack.value=0.003; lim.release.value=0.1;
-  master.connect(lim); lim.connect(ctx.destination);
+  outVol=ctx.createGain();                          // user volume — AFTER the limiter
+  outVol.gain.value=volGain(S.vol);
+  master.connect(lim); lim.connect(outVol); outVol.connect(ctx.destination);
   solidGain=ctx.createGain(); solidGain.gain.value=0; solidGain.connect(master);
   ctx.onstatechange=function(){ log("Audio state → "+ctx.state);
     if(soundOn&&ctx.state!=="running"&&document.visibilityState==="visible") ctx.resume(); };
@@ -676,7 +698,7 @@ function applyLive(){
     var f=pitchAt(gr);
     ensureSolidVoice(S.snd[sideOf(gr)],f);
     solidVoice.setFreq(f,0.08);
-    solidGain.gain.setTargetAtTime((S.vol/100)*0.7,ctx.currentTime,0.05);
+    solidGain.gain.setTargetAtTime(0.55,ctx.currentTime,0.05);   // fixed; user volume post-limiter
   } else {
     solidGain.gain.setTargetAtTime(0,ctx.currentTime,0.05);
   }
@@ -706,7 +728,7 @@ function startBeepLoop(){
       var voice=buildVoice(cfg,f0);
       var g=ctx.createGain();
       voice.out.connect(g); g.connect(master);
-      var vol=Math.max((S.vol/100)*0.8,0.001);
+      var vol=0.6;   // fixed voice level; user volume applied post-limiter
       var lenS=Math.max(0.02,Math.min(dutyAt(gr)/100,0.98)*interval);
       var atk=Math.min(0.008,lenS*0.25);
       var rel=Math.min(0.02,lenS*0.3);
@@ -771,8 +793,8 @@ setInterval(function(){
   if(!soundOn||!ctx) return;
   if(!pageVisible()){ hardMute(true); return; }
   if(ctx.state!=="running"){
-    log("Watchdog: state="+ctx.state+" → resume()");
-    ctx.resume().then(function(){ log("Watchdog: resumed → "+ctx.state); });
+    log("Watchdog: state="+ctx.state+" → clean resume");
+    resumeCleanly();
   }
   if(Date.now()-lastBeepTick>3000){
     log("Watchdog: beep loop stalled → restart");
@@ -783,17 +805,33 @@ function hardMute(on){
   if(!ctx) return;
   if(on){
     if(ctx.state!=="running"){ master.gain.value=0; return; }  // already silent
-    fadeMaster(0,0.06,function(){ try{ ctx.suspend(); }catch(e){} });
+    fadeMaster(0,0.025,function(){ try{ ctx.suspend(); }catch(e){} });
   } else {
     fadeMaster(soundOn?1:0,0.03);
   }
+}
+// Clean resume: rebuild audio state SILENTLY before anything becomes audible,
+// so a voice frozen at suspension can never burst out stale on page return.
+function resumeCleanly(){
+  if(!ctx) return;
+  ctx.resume().then(function(){
+    killActiveBeep(); lastPitch=null;
+    if(solidVoice){ try{ solidVoice.stop(ctx.currentTime); }catch(e){}
+      try{ solidVoice.out.disconnect(); }catch(e){}
+      solidVoice=null; solidCfgKey=""; }
+    if(solidGain) solidGain.gain.value=0;
+    lastEngineState="off";
+    master.gain.value=0;
+    clearTimeout(beepTimer); startBeepLoop();
+    applyLive();
+    setTimeout(function(){ fadeMaster(1,0.06); },100);
+  });
 }
 document.addEventListener("visibilitychange",function(){
   log("Visibility: "+document.visibilityState);
   if(!ctx) return;
   if(pageVisible()){
-    if(soundOn){ ctx.resume().then(function(){ fadeMaster(1,0.03); });
-      log("Visible → audio restored"); }
+    if(soundOn){ resumeCleanly(); log("Visible → audio restored (clean)"); }
   } else { hardMute(true); log("Hidden → audio hard-muted"); }
 });
 window.addEventListener("pagehide",function(){ hardMute(true); });
@@ -840,6 +878,14 @@ function edSetCursor(gr){
 
 // ================= data acquisition =================
 var samples=[]; var tickCount=0, lastHzT=Date.now(), gotData=false;
+var lastLat=null, lastLon=null, cumDist=0;
+function stepDist(lat1,lon1,lat2,lon2){    // haversine, metres
+  var R=6371000, toR=Math.PI/180;
+  var dLat=(lat2-lat1)*toR, dLon=(lon2-lon1)*toR;
+  var a=Math.sin(dLat/2)*Math.sin(dLat/2)+
+        Math.cos(lat1*toR)*Math.cos(lat2*toR)*Math.sin(dLon/2)*Math.sin(dLon/2);
+  return 2*R*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
+}
 function poll(){
   var raw=null;
   try{ if(window.XCTrack&&XCTrack.getLocation) raw=XCTrack.getLocation(); }
@@ -847,19 +893,30 @@ function poll(){
   if(raw&&raw!=="null"){
     try{
       var d=(typeof raw==="string")?JSON.parse(raw):raw;
-      var alt=(d.stdBaroAlt!=null)?d.stdBaroAlt:d.altGps;
-      $("altSrc").textContent=(d.stdBaroAlt!=null)?"baro":"gps";
+      var alt=(S.altSrc==="gps")
+        ? ((d.altGps!=null)?d.altGps:d.stdBaroAlt)
+        : ((d.stdBaroAlt!=null)?d.stdBaroAlt:d.altGps);
+      $("altSrc").textContent=(S.altSrc==="gps")
+        ? ((d.altGps!=null)?"gps":"baro")
+        : ((d.stdBaroAlt!=null)?"baro":"gps");
       var spd=(d.speedComputed!=null)?d.speedComputed:d.speedGps;
       if(!gotData){ gotData=true; log("First sample: "+JSON.stringify(d).substr(0,300)); }
-      ingest(Date.now(),alt,spd);
+      ingest(Date.now(),alt,spd,d.lat,d.lon);
     }catch(e){ log("parse err: "+e.message); }
   } else if(!gotData){
     $("status").textContent="No XCTrack data — check 'Allow web page to access XCTrack data'. Waiting…";
   }
 }
-function ingest(t,alt,spd){
+function ingest(t,alt,spd,lat,lon){
   if(alt==null) return;
-  samples.push({t:t,alt:alt,spd:spd||0});
+  if(lat!=null&&lon!=null){
+    if(lastLat!=null){
+      var st=stepDist(lastLat,lastLon,lat,lon);
+      if(st<300) cumDist+=st;            // ignore GPS jumps
+    }
+    lastLat=lat; lastLon=lon;
+  }
+  samples.push({t:t,alt:alt,spd:spd||0,dist:cumDist});
   var horizon=Math.max(S.avg,3)*1000+500;
   while(samples.length&&t-samples[0].t>horizon) samples.shift();
   tickCount++;
@@ -874,7 +931,9 @@ function windowStats(ms){
   var t=samples[samples.length-1].t, first=null;
   for(var i=samples.length-1;i>=0;i--){ if(t-samples[i].t<=ms) first=samples[i]; else break; }
   if(!first) first=samples[0];
-  return { dt:(t-first.t)/1000, dAlt:samples[samples.length-1].alt-first.alt };
+  var lastS=samples[samples.length-1];
+  return { dt:(t-first.t)/1000, dAlt:lastS.alt-first.alt,
+           dDist:(lastS.dist!==undefined&&first.dist!==undefined)?lastS.dist-first.dist:null };
 }
 function compute(t,alt,spd){
   if(samples.length<3) return;
@@ -882,10 +941,17 @@ function compute(t,alt,spd){
   currentVS=w1.dt>0.3?w1.dAlt/w1.dt:0;
   var wa=windowStats(S.avg*1000), gr=null;
   if(wa.dt>Math.min(S.avg*0.6,2)){
-    var sink=-wa.dAlt/wa.dt, avgSpd=0,n=0;
-    for(var i=0;i<samples.length;i++){ if(t-samples[i].t<=S.avg*1000){ avgSpd+=samples[i].spd; n++; } }
-    avgSpd=n?avgSpd/n:0;
-    gr=(sink>0.05)?(avgSpd/sink):Infinity;
+    var sink=-wa.dAlt/wa.dt;
+    if(sink>0.05){
+      if(wa.dDist!==null&&wa.dDist>1){
+        gr=wa.dDist/(-wa.dAlt);          // true glide: ground distance / height loss
+      } else {                            // no GPS track yet: fall back to speed/sink
+        var avgSpd=0,n=0;
+        for(var i=0;i<samples.length;i++){ if(t-samples[i].t<=S.avg*1000){ avgSpd+=samples[i].spd; n++; } }
+        avgSpd=n?avgSpd/n:0;
+        gr=avgSpd/sink;
+      }
+    } else gr=Infinity;
   }
   if(!demoActive){ currentGR=gr; updateGRDisplay(); applyLive(); }
   $("vs").innerHTML=(currentVS>=0?"+":"")+currentVS.toFixed(1)+'<span class="unit"> m/s</span>';
@@ -905,7 +971,7 @@ function updateGRDisplay(){
 }
 setInterval(poll,200);
 edResize();
-log("v0.25: support link no longer navigates (WebView-safe copy panel).");
+log("v0.27: volume is now a true post-limiter output control with a perceptual curve.");
 
 // ================= offline caching =================
 if("serviceWorker" in navigator){

@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>Glide Vario v0.23</title>
+<title>Glide Vario v0.24</title>
 <style>
   :root { --bg:#0A0D11; --ink:#F2F5F7; --ok:#2FD97B; --dim:#7C8894; --acc:#4FC3F7; --warn:#FFB74D;
           --sky:#4FC3F7; --green:#2FBE6A; --amber:#F09B2E; --mag:#E36BD6;
@@ -118,7 +118,7 @@
 <body>
 
 <div id="status">Waiting for XCTrack data…</div>
-<div id="miniVer">v0.23</div>
+<div id="miniVer">v0.24</div>
 
 <div class="row r1">
   <div class="card" id="grCard" style="position:relative;">
@@ -533,6 +533,14 @@ var AC=window.AudioContext||window.webkitAudioContext;
 var ctx=null, master=null, solidGain=null;
 var soundOn=false, beepTimer=null, lastBeepTick=0;
 var currentGR=null, currentVS=0, demoActive=false;
+function fadeMaster(v,dur,cb){
+  if(!ctx||!master){ if(cb) cb(); return; }
+  var t=ctx.currentTime;
+  master.gain.cancelScheduledValues(t);
+  master.gain.setValueAtTime(master.gain.value,t);
+  master.gain.linearRampToValueAtTime(v,t+dur);
+  if(cb) setTimeout(cb,dur*1000+40);
+}
 function initAudio(){
   if(ctx) return;
   ctx=new AC();
@@ -543,7 +551,7 @@ function initAudio(){
   master.connect(lim); lim.connect(ctx.destination);
   solidGain=ctx.createGain(); solidGain.gain.value=0; solidGain.connect(master);
   ctx.onstatechange=function(){ log("Audio state → "+ctx.state);
-    if(soundOn&&ctx.state!=="running") ctx.resume(); };
+    if(soundOn&&ctx.state!=="running"&&document.visibilityState==="visible") ctx.resume(); };
   log("AudioContext created, state="+ctx.state);
 }
 // Voice builder: base tone + stackable layers (voicing tuned & loudness-matched)
@@ -700,7 +708,8 @@ function startBeepLoop(){
 }
 function setSound(on){
   initAudio(); ctx.resume();
-  soundOn=on; master.gain.value=on?1:0;
+  soundOn=on;
+  fadeMaster(on?1:0,on?0.03:0.05);   // click-free enable/mute
   $("hint").style.display=on?"none":"";
   clearTimeout(beepTimer);
   if(on){ startBeepLoop(); applyLive(); }
@@ -754,14 +763,19 @@ setInterval(function(){
 },1500);
 function hardMute(on){
   if(!ctx) return;
-  master.gain.value=(on||!soundOn)?0:1;
-  if(on){ try{ ctx.suspend(); }catch(e){} }
+  if(on){
+    if(ctx.state!=="running"){ master.gain.value=0; return; }  // already silent
+    fadeMaster(0,0.06,function(){ try{ ctx.suspend(); }catch(e){} });
+  } else {
+    fadeMaster(soundOn?1:0,0.03);
+  }
 }
 document.addEventListener("visibilitychange",function(){
   log("Visibility: "+document.visibilityState);
   if(!ctx) return;
   if(pageVisible()){
-    if(soundOn){ ctx.resume(); master.gain.value=1; log("Visible → audio restored"); }
+    if(soundOn){ ctx.resume().then(function(){ fadeMaster(1,0.03); });
+      log("Visible → audio restored"); }
   } else { hardMute(true); log("Hidden → audio hard-muted"); }
 });
 window.addEventListener("pagehide",function(){ hardMute(true); });
@@ -873,7 +887,7 @@ function updateGRDisplay(){
 }
 setInterval(poll,200);
 edResize();
-log("v0.23: self-updating widgets (auto-reload on new version) + mini version tag.");
+log("v0.24: click-free audio — all mute/unmute paths fade instead of snapping.");
 
 // ================= offline caching =================
 if("serviceWorker" in navigator){

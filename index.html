@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>Glide Vario v0.27</title>
+<title>Glide Vario v0.28</title>
 <style>
   :root { --bg:#0A0D11; --ink:#F2F5F7; --ok:#2FD97B; --dim:#7C8894; --acc:#4FC3F7; --warn:#FFB74D;
           --sky:#4FC3F7; --green:#2FBE6A; --amber:#F09B2E; --mag:#E36BD6;
@@ -136,7 +136,7 @@
 <body>
 
 <div id="status">Waiting for XCTrack data…</div>
-<div id="miniVer">v0.27</div>
+<div id="miniVer">v0.28</div>
 
 <div class="row r1">
   <div class="card" id="grCard" style="position:relative;">
@@ -805,7 +805,7 @@ function hardMute(on){
   if(!ctx) return;
   if(on){
     if(ctx.state!=="running"){ master.gain.value=0; return; }  // already silent
-    fadeMaster(0,0.025,function(){ try{ ctx.suspend(); }catch(e){} });
+    fadeMaster(0,0.02,function(){ try{ ctx.suspend(); }catch(e){} });
   } else {
     fadeMaster(soundOn?1:0,0.03);
   }
@@ -831,8 +831,18 @@ document.addEventListener("visibilitychange",function(){
   log("Visibility: "+document.visibilityState);
   if(!ctx) return;
   if(pageVisible()){
-    if(soundOn){ resumeCleanly(); log("Visible → audio restored (clean)"); }
-  } else { hardMute(true); log("Hidden → audio hard-muted"); }
+    if(soundOn){
+      // Wait briefly for any other widget instance to release audio first,
+      // preventing ~500ms of overlap during a mini↔main page switch.
+      try{ localStorage.setItem("gv_wantAudio",String(Date.now())); }catch(e){}
+      setTimeout(function(){ if(pageVisible()&&soundOn) resumeCleanly(); },140);
+      log("Visible → audio restored (clean, staggered)");
+    }
+  } else {
+    hardMute(true);
+    try{ localStorage.setItem("gv_released",String(Date.now())); }catch(e){}
+    log("Hidden → audio hard-muted");
+  }
 });
 window.addEventListener("pagehide",function(){ hardMute(true); });
 window.addEventListener("blur",function(){ if(!pageVisible()) hardMute(true); });
@@ -939,19 +949,30 @@ function compute(t,alt,spd){
   if(samples.length<3) return;
   var w1=windowStats(1000);
   currentVS=w1.dt>0.3?w1.dAlt/w1.dt:0;
+  var win=[], t0w=t-S.avg*1000;
+  for(var i=0;i<samples.length;i++){ if(samples[i].t>=t0w) win.push(samples[i]); }
   var wa=windowStats(S.avg*1000), gr=null;
   if(wa.dt>Math.min(S.avg*0.6,2)){
-    var sink=-wa.dAlt/wa.dt;
-    if(sink>0.05){
-      if(wa.dDist!==null&&wa.dDist>1){
-        gr=wa.dDist/(-wa.dAlt);          // true glide: ground distance / height loss
-      } else {                            // no GPS track yet: fall back to speed/sink
-        var avgSpd=0,n=0;
-        for(var i=0;i<samples.length;i++){ if(t-samples[i].t<=S.avg*1000){ avgSpd+=samples[i].spd; n++; } }
-        avgSpd=n?avgSpd/n:0;
+    var haveDist=(win.length>=3 && win[0].dist!==undefined);
+    if(haveDist){
+      // Least-squares fit of altitude vs cumulative ground distance (like XCTrack/XCSoar):
+      // uses every sample in the window, not just endpoints → smooth & matches better.
+      var n=win.length, sx=0,sy=0,sxx=0,sxy=0;
+      for(var j=0;j<n;j++){ var x=win[j].dist, y=win[j].alt;
+        sx+=x; sy+=y; sxx+=x*x; sxy+=x*y; }
+      var denom=n*sxx-sx*sx;
+      var slope=(Math.abs(denom)>1e-6)?(n*sxy-sx*sy)/denom:0;  // dAlt per metre of ground
+      if(slope<-1e-5) gr=-1/slope;        // descending → positive GR
+      else gr=Infinity;                    // level or climbing over the fit
+    } else {
+      var sink=-wa.dAlt/wa.dt;
+      if(sink>0.05){
+        var avgSpd=0,m=0;
+        for(var k=0;k<samples.length;k++){ if(t-samples[k].t<=S.avg*1000){ avgSpd+=samples[k].spd; m++; } }
+        avgSpd=m?avgSpd/m:0;
         gr=avgSpd/sink;
-      }
-    } else gr=Infinity;
+      } else gr=Infinity;
+    }
   }
   if(!demoActive){ currentGR=gr; updateGRDisplay(); applyLive(); }
   $("vs").innerHTML=(currentVS>=0?"+":"")+currentVS.toFixed(1)+'<span class="unit"> m/s</span>';
@@ -971,7 +992,7 @@ function updateGRDisplay(){
 }
 setInterval(poll,200);
 edResize();
-log("v0.27: volume is now a true post-limiter output control with a perceptual curve.");
+log("v0.28: regression-based GR (matches XCTrack method) + staggered page-switch audio to kill overlap.");
 
 // ================= offline caching =================
 if("serviceWorker" in navigator){

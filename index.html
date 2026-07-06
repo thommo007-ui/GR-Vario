@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>Glide Vario v0.28</title>
+<title>Glide Vario v0.29</title>
 <style>
   :root { --bg:#0A0D11; --ink:#F2F5F7; --ok:#2FD97B; --dim:#7C8894; --acc:#4FC3F7; --warn:#FFB74D;
           --sky:#4FC3F7; --green:#2FBE6A; --amber:#F09B2E; --mag:#E36BD6;
@@ -136,7 +136,7 @@
 <body>
 
 <div id="status">Waiting for XCTrack data…</div>
-<div id="miniVer">v0.28</div>
+<div id="miniVer">v0.29</div>
 
 <div class="row r1">
   <div class="card" id="grCard" style="position:relative;">
@@ -166,6 +166,16 @@
   <div class="set"><label>Master volume</label><input type="range" id="g_vol" min="0" max="100" step="5"><span class="val" id="g_volV"></span></div>
   <div class="set"><label>Mute when GR infinite (no net sink)</label><input type="checkbox" id="g_mute"><span class="val"></span></div>
   <div class="set"><label>GR altitude source</label><select id="g_altsrc" style="flex:2;background:#0B1015;color:#fff;border:1px solid var(--line);border-radius:10px;padding:8px;font-size:13px;"><option value="baro">Baro (smooth)</option><option value="gps">GPS (compare with XCTrack)</option></select><span class="val"></span></div>
+  <div class="set"><label>GR method (A/B test)</label><select id="g_grmethod" style="flex:2;background:#0B1015;color:#fff;border:1px solid var(--line);border-radius:10px;padding:8px;font-size:13px;">
+    <option value="regDist">1 · Regression: alt vs ground dist</option>
+    <option value="endDist">2 · Endpoints: dist ÷ height loss</option>
+    <option value="regTime">3 · Regression: alt &amp; dist vs time</option>
+    <option value="spdComp">4 · Computed speed ÷ sink</option>
+    <option value="spdCompFilt">5 · Computed speed ÷ sink (smoothed)</option>
+    <option value="spdGps">6 · GPS speed ÷ sink</option>
+    <option value="ratioAvg">7 · Average of instant ratios</option>
+  </select><span class="val"></span></div>
+  <div class="set"><label style="flex:1.4;color:var(--dim)">All methods (live compare)</label><span id="grAll" style="flex:2;font-family:ui-monospace,monospace;font-size:11px;color:var(--acc);white-space:pre-line;line-height:1.5;"></span></div>
 
   <div class="sec">Tone curves — drag dots &amp; the threshold line</div>
   <div id="edWrap">
@@ -233,7 +243,7 @@ var GR_MIN=2, GR_MAX=20, EPS=0.01;
 function defaults(){
   var thr=9;
   return {
-    avg:6, thr:thr, vol:40, muteInf:true, altSrc:"baro",
+    avg:6, thr:thr, vol:40, muteInf:true, altSrc:"baro", grMethod:"regDist",
     curves:{
       pitch:[{gr:2,v:175},{gr:5,v:300},{gr:thr-EPS,v:300},{gr:thr+EPS,v:450},{gr:16.5,v:575},{gr:20,v:625}],
       rate: [{gr:2,v:1.25},{gr:5.5,v:1.25},{gr:thr-EPS,v:1.25},{gr:thr+EPS,v:1.25},{gr:16,v:1.5},{gr:20,v:1.75}],
@@ -293,12 +303,15 @@ function bindG(id,key){
 bindG("g_avg","avg"); bindG("g_vol","vol"); bindG("g_mute","muteInf");
 $("g_altsrc").value=S.altSrc||"baro";
 $("g_altsrc").onchange=function(){ S.altSrc=this.value; save(); };
+$("g_grmethod").value=S.grMethod||"regDist";
+$("g_grmethod").onchange=function(){ S.grMethod=this.value; save(); };
 $("avgLbl").textContent="("+S.avg+"s avg)";
 function refreshGeneralUI(){
   $("g_avg").value=S.avg; $("g_avgV").textContent=S.avg;
   $("g_vol").value=S.vol; $("g_volV").textContent=S.vol;
   $("g_mute").checked=S.muteInf;
   $("g_altsrc").value=S.altSrc||"baro";
+  $("g_grmethod").value=S.grMethod||"regDist";
   $("avgLbl").textContent="("+S.avg+"s avg)";
 }
 
@@ -911,12 +924,14 @@ function poll(){
         : ((d.stdBaroAlt!=null)?"baro":"gps");
       var spd=(d.speedComputed!=null)?d.speedComputed:d.speedGps;
       if(!gotData){ gotData=true; log("First sample: "+JSON.stringify(d).substr(0,300)); }
+      curSpdGps=(d.speedGps!=null)?d.speedGps:0;
       ingest(Date.now(),alt,spd,d.lat,d.lon);
     }catch(e){ log("parse err: "+e.message); }
   } else if(!gotData){
     $("status").textContent="No XCTrack data — check 'Allow web page to access XCTrack data'. Waiting…";
   }
 }
+var curSpdGps=0;
 function ingest(t,alt,spd,lat,lon){
   if(alt==null) return;
   if(lat!=null&&lon!=null){
@@ -926,7 +941,7 @@ function ingest(t,alt,spd,lat,lon){
     }
     lastLat=lat; lastLon=lon;
   }
-  samples.push({t:t,alt:alt,spd:spd||0,dist:cumDist});
+  samples.push({t:t,alt:alt,spd:spd||0,spdG:(curSpdGps||0),dist:cumDist});
   var horizon=Math.max(S.avg,3)*1000+500;
   while(samples.length&&t-samples[0].t>horizon) samples.shift();
   tickCount++;
@@ -945,35 +960,70 @@ function windowStats(ms){
   return { dt:(t-first.t)/1000, dAlt:lastS.alt-first.alt,
            dDist:(lastS.dist!==undefined&&first.dist!==undefined)?lastS.dist-first.dist:null };
 }
+// ---- GR method library: each returns a glide ratio (or Infinity/null) ----
+function grWindow(t){
+  var win=[], t0w=t-S.avg*1000;
+  for(var i=0;i<samples.length;i++){ if(samples[i].t>=t0w) win.push(samples[i]); }
+  return win;
+}
+function slopeFit(xs,ys){         // least-squares slope dy/dx
+  var n=xs.length; if(n<3) return null;
+  var sx=0,sy=0,sxx=0,sxy=0;
+  for(var i=0;i<n;i++){ sx+=xs[i]; sy+=ys[i]; sxx+=xs[i]*xs[i]; sxy+=xs[i]*ys[i]; }
+  var d=n*sxx-sx*sx; return Math.abs(d)>1e-9?(n*sxy-sx*sy)/d:null;
+}
+function grMethods(t){
+  var win=grWindow(t);
+  if(win.length<3) return {};
+  var dt=(win[win.length-1].t-win[0].t)/1000;
+  if(dt<Math.min(S.avg*0.6,2)) return {};
+  var dAlt=win[win.length-1].alt-win[0].alt;
+  var dDist=(win[win.length-1].dist!==undefined)?win[win.length-1].dist-win[0].dist:null;
+  var sink=-dAlt/dt;
+  function avg(f){ var s=0,n=0; win.forEach(function(w){ s+=f(w); n++; }); return n?s/n:0; }
+  var R={};
+  // 1: regression alt vs cumulative ground distance
+  if(dDist!==null){
+    var sl=slopeFit(win.map(function(w){return w.dist;}),win.map(function(w){return w.alt;}));
+    R.regDist=(sl!==null&&sl<-1e-5)?-1/sl:Infinity;
+  }
+  // 2: endpoints dist / height loss
+  if(dDist!==null) R.endDist=(dAlt<-0.05&&dDist>1)?dDist/(-dAlt):Infinity;
+  // 3: regression of dist-vs-time and alt-vs-time, GR = groundSpeed / sinkRate
+  var ts=win.map(function(w){return (w.t-win[0].t)/1000;});
+  var altSlope=slopeFit(ts,win.map(function(w){return w.alt;}));       // m/s vertical
+  if(dDist!==null){
+    var distSlope=slopeFit(ts,win.map(function(w){return w.dist;}));   // m/s ground
+    R.regTime=(altSlope!==null&&altSlope<-1e-5&&distSlope!==null)?(distSlope/(-altSlope)):Infinity;
+  }
+  // 4: XCTrack computed speed / sink (endpoint sink)
+  R.spdComp=(sink>0.05)?avg(function(w){return w.spd;})/sink:Infinity;
+  // 5: computed speed / regression sink (smoothed vertical)
+  R.spdCompFilt=(altSlope!==null&&altSlope<-1e-5)?avg(function(w){return w.spd;})/(-altSlope):Infinity;
+  // 6: GPS speed / sink
+  R.spdGps=(sink>0.05)?avg(function(w){return w.spdG;})/sink:Infinity;
+  // 7: average of per-sample instant ratios (spd / instant sink)
+  var rs=[],prev=null;
+  win.forEach(function(w){
+    if(prev){ var ddt=(w.t-prev.t)/1000, dsink=-(w.alt-prev.alt)/ddt;
+      if(dsink>0.1) rs.push(w.spd/dsink); }
+    prev=w;
+  });
+  R.ratioAvg=rs.length?rs.reduce(function(a,b){return a+b;},0)/rs.length:Infinity;
+  return R;
+}
 function compute(t,alt,spd){
   if(samples.length<3) return;
   var w1=windowStats(1000);
   currentVS=w1.dt>0.3?w1.dAlt/w1.dt:0;
-  var win=[], t0w=t-S.avg*1000;
-  for(var i=0;i<samples.length;i++){ if(samples[i].t>=t0w) win.push(samples[i]); }
-  var wa=windowStats(S.avg*1000), gr=null;
-  if(wa.dt>Math.min(S.avg*0.6,2)){
-    var haveDist=(win.length>=3 && win[0].dist!==undefined);
-    if(haveDist){
-      // Least-squares fit of altitude vs cumulative ground distance (like XCTrack/XCSoar):
-      // uses every sample in the window, not just endpoints → smooth & matches better.
-      var n=win.length, sx=0,sy=0,sxx=0,sxy=0;
-      for(var j=0;j<n;j++){ var x=win[j].dist, y=win[j].alt;
-        sx+=x; sy+=y; sxx+=x*x; sxy+=x*y; }
-      var denom=n*sxx-sx*sx;
-      var slope=(Math.abs(denom)>1e-6)?(n*sxy-sx*sy)/denom:0;  // dAlt per metre of ground
-      if(slope<-1e-5) gr=-1/slope;        // descending → positive GR
-      else gr=Infinity;                    // level or climbing over the fit
-    } else {
-      var sink=-wa.dAlt/wa.dt;
-      if(sink>0.05){
-        var avgSpd=0,m=0;
-        for(var k=0;k<samples.length;k++){ if(t-samples[k].t<=S.avg*1000){ avgSpd+=samples[k].spd; m++; } }
-        avgSpd=m?avgSpd/m:0;
-        gr=avgSpd/sink;
-      } else gr=Infinity;
-    }
-  }
+  var M=grMethods(t);
+  var gr=(M[S.grMethod]!==undefined)?M[S.grMethod]:null;
+  // live compare panel
+  var names={regDist:"1",endDist:"2",regTime:"3",spdComp:"4",spdCompFilt:"5",spdGps:"6",ratioAvg:"7"};
+  var lines=[];
+  for(var k in names){ if(M[k]!==undefined){
+    var val=M[k]; lines.push(names[k]+":"+(!isFinite(val)?"∞":val.toFixed(1))); } }
+  var ga=$("grAll"); if(ga) ga.textContent=lines.join("  ");
   if(!demoActive){ currentGR=gr; updateGRDisplay(); applyLive(); }
   $("vs").innerHTML=(currentVS>=0?"+":"")+currentVS.toFixed(1)+'<span class="unit"> m/s</span>';
   $("spd").innerHTML=((spd||0)*3.6).toFixed(0)+'<span class="unit"> km/h</span>';
@@ -992,7 +1042,7 @@ function updateGRDisplay(){
 }
 setInterval(poll,200);
 edResize();
-log("v0.28: regression-based GR (matches XCTrack method) + staggered page-switch audio to kill overlap.");
+log("v0.29: GR method A/B dropdown (7 strategies) + live all-methods compare panel.");
 
 // ================= offline caching =================
 if("serviceWorker" in navigator){

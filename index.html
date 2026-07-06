@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>Glide Vario v0.31</title>
+<title>Glide Vario v0.32</title>
 <style>
   :root { --bg:#0A0D11; --ink:#F2F5F7; --ok:#2FD97B; --dim:#7C8894; --acc:#4FC3F7; --warn:#FFB74D;
           --sky:#4FC3F7; --green:#2FBE6A; --amber:#F09B2E; --mag:#E36BD6;
@@ -136,7 +136,7 @@
 <body>
 
 <div id="status">Waiting for XCTrack data…</div>
-<div id="miniVer">v0.31</div>
+<div id="miniVer">v0.32</div>
 
 <div class="row r1">
   <div class="card" id="grCard" style="position:relative;">
@@ -167,14 +167,10 @@
   <div class="set"><label>Mute when GR infinite (no net sink)</label><input type="checkbox" id="g_mute"><span class="val"></span></div>
   <div class="set"><label>GR altitude source</label><select id="g_altsrc" style="flex:2;background:#0B1015;color:#fff;border:1px solid var(--line);border-radius:10px;padding:8px;font-size:13px;"><option value="baro">Baro (smooth)</option><option value="gps">GPS (compare with XCTrack)</option></select><span class="val"></span></div>
   <div class="set"><label>GR method (A/B test)</label><select id="g_grmethod" style="flex:2;background:#0B1015;color:#fff;border:1px solid var(--line);border-radius:10px;padding:8px;font-size:13px;">
-    <option value="regDist">1 · Regression: alt vs ground dist</option>
-    <option value="endDist">2 · Endpoints: dist ÷ height loss</option>
-    <option value="regTime">3 · Regression: alt &amp; dist vs time</option>
-    <option value="spdComp">4 · Computed speed ÷ sink</option>
-    <option value="spdCompFilt">5 · Computed speed ÷ sink (smoothed)</option>
-    <option value="spdGps">6 · GPS speed ÷ sink</option>
-    <option value="ratioAvg">7 · Average of instant ratios</option>
-    <option value="regSmooth">8 · Regression: smoothed alt vs dist</option>
+    <option value="baroReg">1 · Baro alt · regression</option>
+    <option value="baroSm">2 · Baro alt · smoothed</option>
+    <option value="gpsReg">3 · GPS alt · regression</option>
+    <option value="gpsSm">4 · GPS alt · smoothed</option>
   </select><span class="val"></span></div>
   <div class="set"><label style="flex:1.4;color:var(--dim)">All methods (live compare)</label><span id="grAll" style="flex:2;font-family:ui-monospace,monospace;font-size:11px;color:var(--acc);white-space:pre-line;line-height:1.5;"></span></div>
   <div class="set"><label style="flex:1.4;color:var(--dim)">Fix-clock diagnostic</label><span id="fixDiag" style="flex:2;font-family:ui-monospace,monospace;font-size:11px;color:var(--warn);">waiting…</span></div>
@@ -241,15 +237,15 @@ if(/[?&]mini=1/.test(location.search)){
 // ================= settings =================
 // Curves: dot positions tuned in flight testing (screenshot-derived defaults).
 // Index 0/5 pinned to GR 2/20; index 2/3 linked to the threshold line.
-var GR_MIN=2, GR_MAX=20, EPS=0.01;
+var GR_MIN=4, GR_MAX=20, EPS=0.01;
 function defaults(){
   var thr=9;
   return {
-    avg:6, thr:thr, vol:40, muteInf:true, altSrc:"baro", grMethod:"regDist",
+    avg:6, thr:thr, vol:40, muteInf:true, altSrc:"baro", grMethod:"baroSm",
     curves:{
-      pitch:[{gr:2,v:175},{gr:5,v:300},{gr:thr-EPS,v:300},{gr:thr+EPS,v:450},{gr:16.5,v:575},{gr:20,v:625}],
-      rate: [{gr:2,v:1.25},{gr:5.5,v:1.25},{gr:thr-EPS,v:1.25},{gr:thr+EPS,v:1.25},{gr:16,v:1.5},{gr:20,v:1.75}],
-      duty: [{gr:2,v:100},{gr:5,v:100},{gr:thr-EPS,v:100},{gr:thr+EPS,v:95},{gr:13.5,v:95},{gr:20,v:95}]
+      pitch:[{gr:4,v:175},{gr:5,v:300},{gr:thr-EPS,v:300},{gr:thr+EPS,v:450},{gr:16.5,v:575},{gr:20,v:625}],
+      rate: [{gr:4,v:1.25},{gr:5.5,v:1.25},{gr:thr-EPS,v:1.25},{gr:thr+EPS,v:1.25},{gr:16,v:1.5},{gr:20,v:1.75}],
+      duty: [{gr:4,v:100},{gr:5,v:100},{gr:thr-EPS,v:100},{gr:thr+EPS,v:95},{gr:13.5,v:95},{gr:20,v:95}]
     },
     snd:{
       bad:  {base:"triangle", chirp:"off", harm:false, fifth:false, chorus:false, warble:false},
@@ -918,62 +914,66 @@ function poll(){
   if(raw&&raw!=="null"){
     try{
       var d=(typeof raw==="string")?JSON.parse(raw):raw;
-      var alt=(S.altSrc==="gps")
-        ? ((d.altGps!=null)?d.altGps:d.stdBaroAlt)
-        : ((d.stdBaroAlt!=null)?d.stdBaroAlt:d.altGps);
-      $("altSrc").textContent=(S.altSrc==="gps")
-        ? ((d.altGps!=null)?"gps":"baro")
-        : ((d.stdBaroAlt!=null)?"baro":"gps");
-      var spd=(d.speedComputed!=null)?d.speedComputed:d.speedGps;
+      var baroA=(d.stdBaroAlt!=null)?d.stdBaroAlt:null;
+      var gpsA=(d.altGps!=null)?d.altGps:null;
+      // display uses whichever the current GR method needs
+      var showBaro=(S.grMethod==="baroReg"||S.grMethod==="baroSm");
+      $("altSrc").textContent=showBaro?(baroA!=null?"baro":"gps"):(gpsA!=null?"gps":"baro");
       if(!gotData){ gotData=true; log("First sample: "+JSON.stringify(d).substr(0,300)); }
-      curSpdGps=(d.speedGps!=null)?d.speedGps:0;
-      // Prefer XCTrack's own fix timestamp; fall back to our clock if absent
       var ftime=(d.time!=null&&isFinite(d.time))?Number(d.time):null;
-      ingest(ftime,alt,spd,d.lat,d.lon,d.isValid);
+      ingest(ftime,baroA,gpsA,d.lat,d.lon,d.isValid);
     }catch(e){ log("parse err: "+e.message); }
   } else if(!gotData){
     $("status").textContent="No XCTrack data — check 'Allow web page to access XCTrack data'. Waiting…";
   }
 }
-var curSpdGps=0;
 var lastFixTime=null, usingFixClock=false;
-var altEMA=null, ALT_TAU=1.5;   // altitude low-pass time constant (s)
+var baroEMA=null, gpsEMA=null, ALT_TAU=1.5;   // altitude low-pass time constant (s)
 var fixDeltas=[];   // recent inter-fix time deltas (ms) for the diagnostic
-function ingest(ftime,alt,spd,lat,lon,isValid){
-  if(alt==null) return;
+function resetTrack(reason){
+  samples.length=0; cumDist=0; lastLat=null; lastLon=null;
+  baroEMA=null; gpsEMA=null; lastFixTime=null; fixDeltas.length=0;
+  log("Track reset ("+reason+")");
+}
+function ingest(ftime,baroA,gpsA,lat,lon,isValid){
+  if(baroA==null&&gpsA==null) return;
   var now=Date.now();
-  // Determine the sample's timestamp: XCTrack fix time if usable, else our clock.
   var t, isNewFix=true;
   if(ftime!=null){
     usingFixClock=true;
     if(lastFixTime!=null){
-      if(ftime===lastFixTime){ isNewFix=false; }      // same fix polled again → skip
-      else { fixDeltas.push(ftime-lastFixTime); if(fixDeltas.length>20) fixDeltas.shift(); }
+      var dtms=ftime-lastFixTime;
+      if(dtms===0){ isNewFix=false; }
+      else if(dtms<0 || dtms>10000){ resetTrack("time jump "+dtms+"ms"); } // skip-forward / rewind
+      else { fixDeltas.push(dtms); if(fixDeltas.length>20) fixDeltas.shift(); }
     }
     t=ftime;
-  } else {
-    usingFixClock=false; t=now;
-  }
-  if(!isNewFix){ maybeShowHz(now); return; }           // dedupe: one sample per fix
+  } else { usingFixClock=false; t=now; }
+  if(!isNewFix){ maybeShowHz(now); return; }
   lastFixTime=ftime;
+  // cumulative ground distance from lat/lon only
   if(lat!=null&&lon!=null){
     if(lastLat!=null){
       var st=stepDist(lastLat,lastLon,lat,lon);
-      if(st<300) cumDist+=st;            // ignore GPS jumps
+      if(st>300){ resetTrack("position jump "+Math.round(st)+"m"); lastLat=lat; lastLon=lon;
+        maybeShowHz(now); return; }
+      cumDist+=st;
     }
     lastLat=lat; lastLon=lon;
   }
-  // low-pass the altitude (time-aware EMA) to mimic XCTrack's baro smoothing
+  // time-aware EMA on BOTH altitude streams
   var prevT=samples.length?samples[samples.length-1].t:null;
-  if(altEMA===null){ altEMA=alt; }
-  else { var dtf=prevT!=null?Math.max((t-prevT)/1000,0.001):1;
-    var a=1-Math.exp(-dtf/ALT_TAU); altEMA+=a*(alt-altEMA); }
-  samples.push({t:t,alt:alt,altS:altEMA,spd:spd||0,spdG:(curSpdGps||0),dist:cumDist});
+  var dtf=prevT!=null?Math.max((t-prevT)/1000,0.001):1;
+  var a=1-Math.exp(-dtf/ALT_TAU);
+  if(baroA!=null){ baroEMA=(baroEMA===null)?baroA:baroEMA+a*(baroA-baroEMA); }
+  if(gpsA!=null){ gpsEMA=(gpsEMA===null)?gpsA:gpsEMA+a*(gpsA-gpsEMA); }
+  samples.push({t:t, baro:baroA, gps:gpsA,
+                baroS:baroEMA, gpsS:gpsEMA, dist:cumDist});
   var horizon=Math.max(S.avg,3)*1000+500;
   while(samples.length&&t-samples[0].t>horizon) samples.shift();
   tickCount++;
   maybeShowHz(now);
-  compute(t,alt,spd);
+  compute(t);
 }
 function medianFixDelta(){
   if(!fixDeltas.length) return 1000;
@@ -1000,7 +1000,7 @@ function windowStats(ms){
   for(var i=samples.length-1;i>=0;i--){ if(t-samples[i].t<=ms) first=samples[i]; else break; }
   if(!first) first=samples[0];
   var lastS=samples[samples.length-1];
-  return { dt:(t-first.t)/1000, dAlt:lastS.alt-first.alt,
+  return { dt:(t-first.t)/1000,
            dDist:(lastS.dist!==undefined&&first.dist!==undefined)?lastS.dist-first.dist:null };
 }
 // ---- GR method library: each returns a glide ratio (or Infinity/null) ----
@@ -1020,72 +1020,61 @@ function grMethods(t){
   if(win.length<3) return {};
   var dt=(win[win.length-1].t-win[0].t)/1000;
   if(dt<Math.min(S.avg*0.6,2)) return {};
-  var dAlt=win[win.length-1].alt-win[0].alt;
   var dDist=(win[win.length-1].dist!==undefined)?win[win.length-1].dist-win[0].dist:null;
-  var sink=-dAlt/dt;
-  function avg(f){ var s=0,n=0; win.forEach(function(w){ s+=f(w); n++; }); return n?s/n:0; }
+  if(dDist===null||dDist<1) return {};   // need real ground travel
+  // Regression of altitude vs cumulative ground distance, using ACTUAL fix
+  // timestamps implicitly (each fix contributes one point at its true distance).
+  // slope = metres-down per metre-forward → GR = -1/slope.
+  function grFrom(key){
+    var xs=[],ys=[];
+    for(var i=0;i<win.length;i++){
+      var y=win[i][key];
+      if(y==null) continue;
+      xs.push(win[i].dist); ys.push(y);
+    }
+    if(xs.length<3) return undefined;
+    var sl=slopeFit(xs,ys);
+    if(sl===null) return undefined;
+    return (sl<-1e-5)?-1/sl:Infinity;
+  }
   var R={};
-  // 1: regression alt vs cumulative ground distance
-  if(dDist!==null){
-    var sl=slopeFit(win.map(function(w){return w.dist;}),win.map(function(w){return w.alt;}));
-    R.regDist=(sl!==null&&sl<-1e-5)?-1/sl:Infinity;
-  }
-  // 2: endpoints dist / height loss
-  if(dDist!==null) R.endDist=(dAlt<-0.05&&dDist>1)?dDist/(-dAlt):Infinity;
-  // 3: regression of dist-vs-time and alt-vs-time, GR = groundSpeed / sinkRate
-  var ts=win.map(function(w){return (w.t-win[0].t)/1000;});
-  var altSlope=slopeFit(ts,win.map(function(w){return w.alt;}));       // m/s vertical
-  if(dDist!==null){
-    var distSlope=slopeFit(ts,win.map(function(w){return w.dist;}));   // m/s ground
-    R.regTime=(altSlope!==null&&altSlope<-1e-5&&distSlope!==null)?(distSlope/(-altSlope)):Infinity;
-  }
-  // 4: XCTrack computed speed / sink (endpoint sink)
-  R.spdComp=(sink>0.05)?avg(function(w){return w.spd;})/sink:Infinity;
-  // 5: computed speed / regression sink (smoothed vertical)
-  R.spdCompFilt=(altSlope!==null&&altSlope<-1e-5)?avg(function(w){return w.spd;})/(-altSlope):Infinity;
-  // 6: GPS speed / sink
-  R.spdGps=(sink>0.05)?avg(function(w){return w.spdG;})/sink:Infinity;
-  // 7: average of per-sample instant ratios (spd / instant sink)
-  var rs=[],prev=null;
-  win.forEach(function(w){
-    if(prev){ var ddt=(w.t-prev.t)/1000, dsink=-(w.alt-prev.alt)/ddt;
-      if(dsink>0.1) rs.push(w.spd/dsink); }
-    prev=w;
-  });
-  R.ratioAvg=rs.length?rs.reduce(function(a,b){return a+b;},0)/rs.length:Infinity;
-  // 8: regression of SMOOTHED altitude vs ground distance
-  if(dDist!==null){
-    var sl8=slopeFit(win.map(function(w){return w.dist;}),
-                     win.map(function(w){return (w.altS!==undefined?w.altS:w.alt);}));
-    R.regSmooth=(sl8!==null&&sl8<-1e-5)?-1/sl8:Infinity;
-  }
+  R.baroReg=grFrom("baro");
+  R.baroSm =grFrom("baroS");
+  R.gpsReg =grFrom("gps");
+  R.gpsSm  =grFrom("gpsS");
   return R;
 }
-function compute(t,alt,spd){
+function compute(t){
   if(samples.length<3) return;
-  // Vertical speed over ~the fix interval (min 1s), using smoothed altitude,
-  // so the audio reacts at the fix cadence rather than being forced at 5 Hz.
+  var useGps=(S.grMethod==="gpsReg"||S.grMethod==="gpsSm");
+  var useSm=(S.grMethod==="baroSm"||S.grMethod==="gpsSm");
+  var altKey=useGps?(useSm?"gpsS":"gps"):(useSm?"baroS":"baro");
+  var last=samples[samples.length-1];
+  var altNow=last[altKey]!=null?last[altKey]:(last.baro!=null?last.baro:last.gps);
+  // Vertical speed over ~the fix interval (min 1s) from the selected altitude
+  // stream, so audio reacts at the fix cadence, not a forced 5 Hz.
   var vsWin=Math.max(1000, medianFixDelta()*1.5);
-  var wv=windowStats(vsWin);
   var aNow=samples[samples.length-1], aOld=null;
   for(var vi=samples.length-1;vi>=0;vi--){ if(aNow.t-samples[vi].t<=vsWin) aOld=samples[vi]; else break; }
-  if(aOld&&aNow.t>aOld.t){
-    var aN=(aNow.altS!==undefined?aNow.altS:aNow.alt);
-    var aO=(aOld.altS!==undefined?aOld.altS:aOld.alt);
-    currentVS=(aN-aO)/((aNow.t-aOld.t)/1000);
+  var smKey=useGps?"gpsS":"baroS";
+  if(aOld&&aNow.t>aOld.t&&aNow[smKey]!=null&&aOld[smKey]!=null){
+    currentVS=(aNow[smKey]-aOld[smKey])/((aNow.t-aOld.t)/1000);
   } else currentVS=0;
   var M=grMethods(t);
   var gr=(M[S.grMethod]!==undefined)?M[S.grMethod]:null;
   // live compare panel
-  var names={regDist:"1",endDist:"2",regTime:"3",spdComp:"4",spdCompFilt:"5",spdGps:"6",ratioAvg:"7"};
+  var names={baroReg:"1baroR",baroSm:"2baroS",gpsReg:"3gpsR",gpsSm:"4gpsS"};
   var lines=[];
   for(var k in names){ if(M[k]!==undefined){
     var val=M[k]; lines.push(names[k]+":"+(!isFinite(val)?"∞":val.toFixed(1))); } }
   var ga=$("grAll"); if(ga) ga.textContent=lines.join("  ");
   if(!demoActive){ currentGR=gr; updateGRDisplay(); applyLive(); }
   $("vs").innerHTML=(currentVS>=0?"+":"")+currentVS.toFixed(1)+'<span class="unit"> m/s</span>';
-  $("spd").innerHTML=((spd||0)*3.6).toFixed(0)+'<span class="unit"> km/h</span>';
-  $("alt").innerHTML=alt.toFixed(0)+'<span class="unit"> m</span>';
+  // speed derived from ground distance over the window (no XCTrack speed field used)
+  var spdWin=windowStats(Math.max(2000,medianFixDelta()*2));
+  var spdMS=(spdWin.dDist!=null&&spdWin.dt>0.3)?spdWin.dDist/spdWin.dt:0;
+  $("spd").innerHTML=(spdMS*3.6).toFixed(0)+'<span class="unit"> km/h</span>';
+  $("alt").innerHTML=(altNow!=null?altNow.toFixed(0):"–")+'<span class="unit"> m</span>';
   $("status").textContent="Live · "+new Date(t).toLocaleTimeString();
 }
 function updateGRDisplay(){
@@ -1100,7 +1089,7 @@ function updateGRDisplay(){
 }
 setInterval(poll,200);
 edResize();
-log("v0.31: method 8 (smoothed-alt regression) + vertical speed/audio tied to fix cadence, not 5 Hz.");
+log("v0.32: 4 GPS-position GR methods (baro/gps x reg/smoothed), lat-lon distance only, skip-forward reset, GR min 4.");
 
 // ================= offline caching =================
 if("serviceWorker" in navigator){

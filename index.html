@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>Glide Vario v0.32</title>
+<title>Glide Vario v0.33</title>
 <style>
   :root { --bg:#0A0D11; --ink:#F2F5F7; --ok:#2FD97B; --dim:#7C8894; --acc:#4FC3F7; --warn:#FFB74D;
           --sky:#4FC3F7; --green:#2FBE6A; --amber:#F09B2E; --mag:#E36BD6;
@@ -136,7 +136,7 @@
 <body>
 
 <div id="status">Waiting for XCTrack data…</div>
-<div id="miniVer">v0.32</div>
+<div id="miniVer">v0.33</div>
 
 <div class="row r1">
   <div class="card" id="grCard" style="position:relative;">
@@ -162,10 +162,11 @@
   <summary>Sound &amp; averaging settings</summary>
 
   <div class="sec">General</div>
-  <div class="set"><label>GR averaging (s)</label><input type="range" id="g_avg" min="1" max="30" step="1"><span class="val" id="g_avgV"></span></div>
+  <div class="set"><label>GR averaging (s)</label><input type="range" id="g_avg" min="4" max="30" step="1"><span class="val" id="g_avgV"></span></div>
   <div class="set"><label>Master volume</label><input type="range" id="g_vol" min="0" max="100" step="5"><span class="val" id="g_volV"></span></div>
   <div class="set"><label>Mute when GR infinite (no net sink)</label><input type="checkbox" id="g_mute"><span class="val"></span></div>
   <div class="set"><label>GR altitude source</label><select id="g_altsrc" style="flex:2;background:#0B1015;color:#fff;border:1px solid var(--line);border-radius:10px;padding:8px;font-size:13px;"><option value="baro">Baro (smooth)</option><option value="gps">GPS (compare with XCTrack)</option></select><span class="val"></span></div>
+  <div class="set"><label>Sink smoothing (s)</label><input type="range" id="g_alttau" min="0.5" max="6" step="0.5"><span class="val" id="g_alttauV"></span></div>
   <div class="set"><label>GR method (A/B test)</label><select id="g_grmethod" style="flex:2;background:#0B1015;color:#fff;border:1px solid var(--line);border-radius:10px;padding:8px;font-size:13px;">
     <option value="baroReg">1 · Baro alt · regression</option>
     <option value="baroSm">2 · Baro alt · smoothed</option>
@@ -241,7 +242,7 @@ var GR_MIN=4, GR_MAX=20, EPS=0.01;
 function defaults(){
   var thr=9;
   return {
-    avg:6, thr:thr, vol:40, muteInf:true, altSrc:"baro", grMethod:"baroSm",
+    avg:6, thr:thr, vol:40, muteInf:true, altSrc:"baro", grMethod:"baroSm", altTau:2.5,
     curves:{
       pitch:[{gr:4,v:175},{gr:5,v:300},{gr:thr-EPS,v:300},{gr:thr+EPS,v:450},{gr:16.5,v:575},{gr:20,v:625}],
       rate: [{gr:4,v:1.25},{gr:5.5,v:1.25},{gr:thr-EPS,v:1.25},{gr:thr+EPS,v:1.25},{gr:16,v:1.5},{gr:20,v:1.75}],
@@ -298,7 +299,9 @@ function bindG(id,key){
     if(key==="vol"&&outVol&&ctx) outVol.gain.setTargetAtTime(volGain(S.vol),ctx.currentTime,0.03);
     applyLive(); };
 }
+if(S.avg<4) S.avg=4;
 bindG("g_avg","avg"); bindG("g_vol","vol"); bindG("g_mute","muteInf");
+bindG("g_alttau","altTau");
 $("g_altsrc").value=S.altSrc||"baro";
 $("g_altsrc").onchange=function(){ S.altSrc=this.value; save(); };
 $("g_grmethod").value=S.grMethod||"regDist";
@@ -308,6 +311,7 @@ function refreshGeneralUI(){
   $("g_avg").value=S.avg; $("g_avgV").textContent=S.avg;
   $("g_vol").value=S.vol; $("g_volV").textContent=S.vol;
   $("g_mute").checked=S.muteInf;
+  $("g_alttau").value=S.altTau||2.5; $("g_alttauV").textContent=S.altTau||2.5;
   $("g_altsrc").value=S.altSrc||"baro";
   $("g_grmethod").value=S.grMethod||"regDist";
   $("avgLbl").textContent="("+S.avg+"s avg)";
@@ -928,7 +932,7 @@ function poll(){
   }
 }
 var lastFixTime=null, usingFixClock=false;
-var baroEMA=null, gpsEMA=null, ALT_TAU=1.5;   // altitude low-pass time constant (s)
+var baroEMA=null, gpsEMA=null;   // altitude low-pass EMAs (tau from S.altTau)
 var fixDeltas=[];   // recent inter-fix time deltas (ms) for the diagnostic
 function resetTrack(reason){
   samples.length=0; cumDist=0; lastLat=null; lastLon=null;
@@ -964,7 +968,7 @@ function ingest(ftime,baroA,gpsA,lat,lon,isValid){
   // time-aware EMA on BOTH altitude streams
   var prevT=samples.length?samples[samples.length-1].t:null;
   var dtf=prevT!=null?Math.max((t-prevT)/1000,0.001):1;
-  var a=1-Math.exp(-dtf/ALT_TAU);
+  var a=1-Math.exp(-dtf/(S.altTau||2.5));
   if(baroA!=null){ baroEMA=(baroEMA===null)?baroA:baroEMA+a*(baroA-baroEMA); }
   if(gpsA!=null){ gpsEMA=(gpsEMA===null)?gpsA:gpsEMA+a*(gpsA-gpsEMA); }
   samples.push({t:t, baro:baroA, gps:gpsA,
@@ -1025,23 +1029,33 @@ function grMethods(t){
   // Regression of altitude vs cumulative ground distance, using ACTUAL fix
   // timestamps implicitly (each fix contributes one point at its true distance).
   // slope = metres-down per metre-forward → GR = -1/slope.
-  function grFrom(key){
+  // GR from altitude-vs-distance regression (slope = m down per m forward)
+  function grDist(key){
     var xs=[],ys=[];
-    for(var i=0;i<win.length;i++){
-      var y=win[i][key];
-      if(y==null) continue;
-      xs.push(win[i].dist); ys.push(y);
-    }
+    for(var i=0;i<win.length;i++){ if(win[i][key]==null) continue;
+      xs.push(win[i].dist); ys.push(win[i][key]); }
     if(xs.length<3) return undefined;
     var sl=slopeFit(xs,ys);
     if(sl===null) return undefined;
     return (sl<-1e-5)?-1/sl:Infinity;
   }
+  // GR = groundspeed / sink, both from regression vs TIME (matches XCTrack's
+  // "speed and vertical speed over the window" approach). Uses smoothed altitude.
+  function grTime(key){
+    var ts=[],ys=[],ds=[];
+    for(var i=0;i<win.length;i++){ if(win[i][key]==null) continue;
+      ts.push((win[i].t-win[0].t)/1000); ys.push(win[i][key]); ds.push(win[i].dist); }
+    if(ts.length<3) return undefined;
+    var sink=slopeFit(ts,ys);        // m/s vertical (negative = sink)
+    var gspd=slopeFit(ts,ds);        // m/s ground
+    if(sink===null||gspd===null) return undefined;
+    return (sink<-1e-5)?(gspd/(-sink)):Infinity;
+  }
   var R={};
-  R.baroReg=grFrom("baro");
-  R.baroSm =grFrom("baroS");
-  R.gpsReg =grFrom("gps");
-  R.gpsSm  =grFrom("gpsS");
+  R.baroReg=grDist("baro");
+  R.baroSm =grTime("baroS");     // smoothed modes now use time-regression (steadier sink)
+  R.gpsReg =grDist("gps");
+  R.gpsSm  =grTime("gpsS");
   return R;
 }
 function compute(t){
@@ -1089,7 +1103,7 @@ function updateGRDisplay(){
 }
 setInterval(poll,200);
 edResize();
-log("v0.32: 4 GPS-position GR methods (baro/gps x reg/smoothed), lat-lon distance only, skip-forward reset, GR min 4.");
+log("v0.33: adjustable sink smoothing to match XCTrack; smoothed methods use time-regression; GR averaging min 4.");
 
 // ================= offline caching =================
 if("serviceWorker" in navigator){

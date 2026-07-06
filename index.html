@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>Glide Vario v0.30</title>
+<title>Glide Vario v0.31</title>
 <style>
   :root { --bg:#0A0D11; --ink:#F2F5F7; --ok:#2FD97B; --dim:#7C8894; --acc:#4FC3F7; --warn:#FFB74D;
           --sky:#4FC3F7; --green:#2FBE6A; --amber:#F09B2E; --mag:#E36BD6;
@@ -136,7 +136,7 @@
 <body>
 
 <div id="status">Waiting for XCTrack data…</div>
-<div id="miniVer">v0.30</div>
+<div id="miniVer">v0.31</div>
 
 <div class="row r1">
   <div class="card" id="grCard" style="position:relative;">
@@ -174,6 +174,7 @@
     <option value="spdCompFilt">5 · Computed speed ÷ sink (smoothed)</option>
     <option value="spdGps">6 · GPS speed ÷ sink</option>
     <option value="ratioAvg">7 · Average of instant ratios</option>
+    <option value="regSmooth">8 · Regression: smoothed alt vs dist</option>
   </select><span class="val"></span></div>
   <div class="set"><label style="flex:1.4;color:var(--dim)">All methods (live compare)</label><span id="grAll" style="flex:2;font-family:ui-monospace,monospace;font-size:11px;color:var(--acc);white-space:pre-line;line-height:1.5;"></span></div>
   <div class="set"><label style="flex:1.4;color:var(--dim)">Fix-clock diagnostic</label><span id="fixDiag" style="flex:2;font-family:ui-monospace,monospace;font-size:11px;color:var(--warn);">waiting…</span></div>
@@ -936,6 +937,7 @@ function poll(){
 }
 var curSpdGps=0;
 var lastFixTime=null, usingFixClock=false;
+var altEMA=null, ALT_TAU=1.5;   // altitude low-pass time constant (s)
 var fixDeltas=[];   // recent inter-fix time deltas (ms) for the diagnostic
 function ingest(ftime,alt,spd,lat,lon,isValid){
   if(alt==null) return;
@@ -961,12 +963,22 @@ function ingest(ftime,alt,spd,lat,lon,isValid){
     }
     lastLat=lat; lastLon=lon;
   }
-  samples.push({t:t,alt:alt,spd:spd||0,spdG:(curSpdGps||0),dist:cumDist});
+  // low-pass the altitude (time-aware EMA) to mimic XCTrack's baro smoothing
+  var prevT=samples.length?samples[samples.length-1].t:null;
+  if(altEMA===null){ altEMA=alt; }
+  else { var dtf=prevT!=null?Math.max((t-prevT)/1000,0.001):1;
+    var a=1-Math.exp(-dtf/ALT_TAU); altEMA+=a*(alt-altEMA); }
+  samples.push({t:t,alt:alt,altS:altEMA,spd:spd||0,spdG:(curSpdGps||0),dist:cumDist});
   var horizon=Math.max(S.avg,3)*1000+500;
   while(samples.length&&t-samples[0].t>horizon) samples.shift();
   tickCount++;
   maybeShowHz(now);
   compute(t,alt,spd);
+}
+function medianFixDelta(){
+  if(!fixDeltas.length) return 1000;
+  var s=fixDeltas.slice().sort(function(a,b){return a-b;});
+  return s[Math.floor(s.length/2)]||1000;
 }
 function maybeShowHz(now){
   if(now-lastHzT>=2000){
@@ -1041,12 +1053,27 @@ function grMethods(t){
     prev=w;
   });
   R.ratioAvg=rs.length?rs.reduce(function(a,b){return a+b;},0)/rs.length:Infinity;
+  // 8: regression of SMOOTHED altitude vs ground distance
+  if(dDist!==null){
+    var sl8=slopeFit(win.map(function(w){return w.dist;}),
+                     win.map(function(w){return (w.altS!==undefined?w.altS:w.alt);}));
+    R.regSmooth=(sl8!==null&&sl8<-1e-5)?-1/sl8:Infinity;
+  }
   return R;
 }
 function compute(t,alt,spd){
   if(samples.length<3) return;
-  var w1=windowStats(1000);
-  currentVS=w1.dt>0.3?w1.dAlt/w1.dt:0;
+  // Vertical speed over ~the fix interval (min 1s), using smoothed altitude,
+  // so the audio reacts at the fix cadence rather than being forced at 5 Hz.
+  var vsWin=Math.max(1000, medianFixDelta()*1.5);
+  var wv=windowStats(vsWin);
+  var aNow=samples[samples.length-1], aOld=null;
+  for(var vi=samples.length-1;vi>=0;vi--){ if(aNow.t-samples[vi].t<=vsWin) aOld=samples[vi]; else break; }
+  if(aOld&&aNow.t>aOld.t){
+    var aN=(aNow.altS!==undefined?aNow.altS:aNow.alt);
+    var aO=(aOld.altS!==undefined?aOld.altS:aOld.alt);
+    currentVS=(aN-aO)/((aNow.t-aOld.t)/1000);
+  } else currentVS=0;
   var M=grMethods(t);
   var gr=(M[S.grMethod]!==undefined)?M[S.grMethod]:null;
   // live compare panel
@@ -1073,7 +1100,7 @@ function updateGRDisplay(){
 }
 setInterval(poll,200);
 edResize();
-log("v0.30: dedupe on XCTrack fix time + use fix clock for all GR math; fix-rate diagnostic.");
+log("v0.31: method 8 (smoothed-alt regression) + vertical speed/audio tied to fix cadence, not 5 Hz.");
 
 // ================= offline caching =================
 if("serviceWorker" in navigator){

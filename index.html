@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>Glide Vario v0.35</title>
+<title>Glide Vario v0.36</title>
 <style>
   :root { --bg:#0A0D11; --ink:#F2F5F7; --ok:#2FD97B; --dim:#7C8894; --acc:#4FC3F7; --warn:#FFB74D;
           --sky:#4FC3F7; --green:#2FBE6A; --amber:#F09B2E; --mag:#E36BD6;
@@ -136,7 +136,7 @@
 <body>
 
 <div id="status">Waiting for XCTrack data…</div>
-<div id="miniVer">v0.35</div>
+<div id="miniVer">v0.36</div>
 
 <div class="row r1">
   <div class="card" id="grCard" style="position:relative;">
@@ -145,7 +145,7 @@
     <div class="big" id="gr">–</div>
   </div>
   <div class="card" id="varioCard">
-    <div class="label">Vario (1s)</div>
+    <div class="label">Vario (<span id="varioLbl">3s</span>)</div>
     <div class="big" id="vs">–<span class="unit"> m/s</span></div>
   </div>
 </div>
@@ -166,7 +166,10 @@
   <div class="set"><label>Master volume</label><input type="range" id="g_vol" min="0" max="100" step="5"><span class="val" id="g_volV"></span></div>
   <div class="set"><label>Mute when GR infinite (no net sink)</label><input type="checkbox" id="g_mute"><span class="val"></span></div>
   <div class="set"><label>GR altitude source</label><select id="g_altsrc" style="flex:2;background:#0B1015;color:#fff;border:1px solid var(--line);border-radius:10px;padding:8px;font-size:13px;"><option value="baro">Baro (smooth)</option><option value="gps">GPS (compare with XCTrack)</option></select><span class="val"></span></div>
-  <div class="set"><label>Sink smoothing (s)</label><input type="range" id="g_alttau" min="0.5" max="6" step="0.5"><span class="val" id="g_alttauV"></span></div>
+  <div class="set"><label>Vario averaging (s) — match XCTrack</label><input type="range" id="g_varioavg" min="1" max="20" step="1"><span class="val" id="g_varioavgV"></span></div>
+  <div class="set"><label>Vario smoothing (s)</label><input type="range" id="g_variotau" min="0" max="6" step="0.5"><span class="val" id="g_variotauV"></span></div>
+  <div class="set"><label style="flex:1.4;color:var(--dim)">Vario compare (raw / light / heavy)</label><span id="varioAll" style="flex:2;font-family:ui-monospace,monospace;font-size:11px;color:var(--acc);"></span></div>
+  <div class="set"><label>Sink smoothing (s) — GR only</label><input type="range" id="g_alttau" min="0.5" max="6" step="0.5"><span class="val" id="g_alttauV"></span></div>
   <div class="set"><label>Speed smoothing (s)</label><input type="range" id="g_disttau" min="0.5" max="6" step="0.5"><span class="val" id="g_disttauV"></span></div>
   <div class="set"><label>GR method (A/B test)</label><select id="g_grmethod" style="flex:2;background:#0B1015;color:#fff;border:1px solid var(--line);border-radius:10px;padding:8px;font-size:13px;">
     <option value="baroSm">1 · Baro · dist (haversine) · smoothed</option>
@@ -247,7 +250,7 @@ var GR_MIN=4, GR_MAX=20, EPS=0.01;
 function defaults(){
   var thr=9;
   return {
-    avg:6, thr:thr, vol:40, muteInf:true, altSrc:"baro", grMethod:"baroSm", altTau:2.5, distTau:1.0,
+    avg:6, thr:thr, vol:40, muteInf:true, altSrc:"baro", grMethod:"baroSm", altTau:2.5, distTau:1.0, varioAvg:3, varioTau:1.0,
     curves:{
       pitch:[{gr:4,v:175},{gr:5,v:300},{gr:thr-EPS,v:300},{gr:thr+EPS,v:450},{gr:16.5,v:575},{gr:20,v:625}],
       rate: [{gr:4,v:1.25},{gr:5.5,v:1.25},{gr:thr-EPS,v:1.25},{gr:thr+EPS,v:1.25},{gr:16,v:1.5},{gr:20,v:1.75}],
@@ -301,6 +304,7 @@ function bindG(id,key){
   el.value=S[key]; if(v) v.textContent=S[key];
   el.oninput=function(){ S[key]=parseFloat(el.value); if(v) v.textContent=el.value;
     save(); $("avgLbl").textContent="("+S.avg+"s avg)";
+$("varioLbl") && ($("varioLbl").textContent=(S.varioAvg||3)+"s");
     if(key==="vol"&&outVol&&ctx) outVol.gain.setTargetAtTime(volGain(S.vol),ctx.currentTime,0.03);
     applyLive(); };
 }
@@ -308,20 +312,26 @@ if(S.avg<4) S.avg=4;
 bindG("g_avg","avg"); bindG("g_vol","vol"); bindG("g_mute","muteInf");
 bindG("g_alttau","altTau");
 bindG("g_disttau","distTau");
+bindG("g_varioavg","varioAvg");
+bindG("g_variotau","varioTau");
 $("g_altsrc").value=S.altSrc||"baro";
 $("g_altsrc").onchange=function(){ S.altSrc=this.value; save(); };
 $("g_grmethod").value=S.grMethod||"regDist";
 $("g_grmethod").onchange=function(){ S.grMethod=this.value; save(); };
 $("avgLbl").textContent="("+S.avg+"s avg)";
+$("varioLbl") && ($("varioLbl").textContent=(S.varioAvg||3)+"s");
 function refreshGeneralUI(){
   $("g_avg").value=S.avg; $("g_avgV").textContent=S.avg;
   $("g_vol").value=S.vol; $("g_volV").textContent=S.vol;
   $("g_mute").checked=S.muteInf;
   $("g_alttau").value=S.altTau||2.5; $("g_alttauV").textContent=S.altTau||2.5;
   $("g_disttau").value=S.distTau||1.0; $("g_disttauV").textContent=S.distTau||1.0;
+  $("g_varioavg").value=S.varioAvg||3; $("g_varioavgV").textContent=S.varioAvg||3;
+  $("g_variotau").value=(S.varioTau!=null?S.varioTau:1.0); $("g_variotauV").textContent=(S.varioTau!=null?S.varioTau:1.0);
   $("g_altsrc").value=S.altSrc||"baro";
   $("g_grmethod").value=S.grMethod||"regDist";
   $("avgLbl").textContent="("+S.avg+"s avg)";
+$("varioLbl") && ($("varioLbl").textContent=(S.varioAvg||3)+"s");
 }
 
 // ================= curve model =================
@@ -1090,15 +1100,38 @@ function compute(t){
   var altKey=useGps?(rawMethod?"gps":"gpsS"):(rawMethod?"baro":"baroS");
   var last=samples[samples.length-1];
   var altNow=last[altKey]!=null?last[altKey]:(last.baro!=null?last.baro:last.gps);
-  // Vertical speed over ~the fix interval (min 1s) from the selected altitude
-  // stream, so audio reacts at the fix cadence, not a forced 5 Hz.
-  var vsWin=Math.max(1000, medianFixDelta()*1.5);
-  var aNow=samples[samples.length-1], aOld=null;
-  for(var vi=samples.length-1;vi>=0;vi--){ if(aNow.t-samples[vi].t<=vsWin) aOld=samples[vi]; else break; }
-  var smKey=useGps?"gpsS":"baroS";
-  if(aOld&&aNow.t>aOld.t&&aNow[smKey]!=null&&aOld[smKey]!=null){
-    currentVS=(aNow[smKey]-aOld[smKey])/((aNow.t-aOld.t)/1000);
-  } else currentVS=0;
+  // ---- Vario: vertical speed over the vario-averaging window, from baro alt ----
+  // Regress altitude vs time over the window → slope = vertical speed (m/s).
+  // This matches XCTrack's "vertical speed / Xs" when the window is set equal.
+  var vAvg=(S.varioAvg||3)*1000;
+  var vWin=[];
+  for(var vi=samples.length-1;vi>=0;vi--){ if(last.t-samples[vi].t<=vAvg) vWin.unshift(samples[vi]); else break; }
+  function vsFrom(key){
+    if(vWin.length<2) return 0;
+    var ts=[],ys=[];
+    for(var q=0;q<vWin.length;q++){ if(vWin[q][key]==null) continue;
+      ts.push((vWin[q].t-vWin[0].t)/1000); ys.push(vWin[q][key]); }
+    if(ts.length<2) return 0;
+    var sl=slopeFit(ts,ys);           // m/s
+    return sl===null?0:sl;
+  }
+  // three-way diagnostic
+  var vsRaw=vsFrom("baro"), vsLight=vsFrom("baroS");
+  // heavy: use the varioTau EMA (separate, stronger low-pass) — compute inline
+  var vsHeavy=vsRaw;
+  if(vWin.length>=2){
+    var tau=(S.varioTau!=null?S.varioTau:1.0);
+    if(tau>0.01){
+      var em=null,prev=null,heavyFirst=null,heavyLast=null,ht0=null,htL=null;
+      for(var h=0;h<vWin.length;h++){ var yv=vWin[h].baro; if(yv==null) continue;
+        if(em===null){ em=yv; ht0=vWin[h].t; } 
+        else { var dh=Math.max((vWin[h].t-prev)/1000,0.001); var af=1-Math.exp(-dh/tau); em+=af*(yv-em); }
+        prev=vWin[h].t; heavyLast=em; htL=vWin[h].t; if(heavyFirst===null){heavyFirst=em;} }
+      if(heavyFirst!==null&&htL>ht0) vsHeavy=(heavyLast-heavyFirst)/((htL-ht0)/1000);
+    } else vsHeavy=vsRaw;
+  }
+  currentVS=(S.varioTau>0.01)?vsHeavy:vsLight;   // displayed vario uses your smoothing
+  var va=$("varioAll"); if(va) va.textContent=vsRaw.toFixed(1)+" / "+vsLight.toFixed(1)+" / "+vsHeavy.toFixed(1);
   var M=grMethods(t);
   var gr=(M[S.grMethod]!==undefined)?M[S.grMethod]:null;
   // live compare panel
@@ -1128,7 +1161,7 @@ function updateGRDisplay(){
 }
 setInterval(poll,200);
 edResize();
-log("v0.35: 8 GR methods — distance vs time based, plus XCTrack computed/gps speed-derived distance.");
+log("v0.36: vario now has its own averaging window (match XCTrack) + smoothing slider + 3-way compare.");
 
 // ================= offline caching =================
 if("serviceWorker" in navigator){

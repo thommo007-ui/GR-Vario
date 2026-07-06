@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>Glide Vario v0.36</title>
+<title>Glide Vario v0.37</title>
 <style>
   :root { --bg:#0A0D11; --ink:#F2F5F7; --ok:#2FD97B; --dim:#7C8894; --acc:#4FC3F7; --warn:#FFB74D;
           --sky:#4FC3F7; --green:#2FBE6A; --amber:#F09B2E; --mag:#E36BD6;
@@ -136,7 +136,7 @@
 <body>
 
 <div id="status">Waiting for XCTrack data…</div>
-<div id="miniVer">v0.36</div>
+<div id="miniVer">v0.37</div>
 
 <div class="row r1">
   <div class="card" id="grCard" style="position:relative;">
@@ -162,7 +162,7 @@
   <summary>Sound &amp; averaging settings</summary>
 
   <div class="sec">General</div>
-  <div class="set"><label>GR averaging (s)</label><input type="range" id="g_avg" min="4" max="30" step="1"><span class="val" id="g_avgV"></span></div>
+  <div class="set"><label>GR averaging (s)</label><input type="range" id="g_avg" min="6" max="30" step="1"><span class="val" id="g_avgV"></span></div>
   <div class="set"><label>Master volume</label><input type="range" id="g_vol" min="0" max="100" step="5"><span class="val" id="g_volV"></span></div>
   <div class="set"><label>Mute when GR infinite (no net sink)</label><input type="checkbox" id="g_mute"><span class="val"></span></div>
   <div class="set"><label>GR altitude source</label><select id="g_altsrc" style="flex:2;background:#0B1015;color:#fff;border:1px solid var(--line);border-radius:10px;padding:8px;font-size:13px;"><option value="baro">Baro (smooth)</option><option value="gps">GPS (compare with XCTrack)</option></select><span class="val"></span></div>
@@ -172,14 +172,12 @@
   <div class="set"><label>Sink smoothing (s) — GR only</label><input type="range" id="g_alttau" min="0.5" max="6" step="0.5"><span class="val" id="g_alttauV"></span></div>
   <div class="set"><label>Speed smoothing (s)</label><input type="range" id="g_disttau" min="0.5" max="6" step="0.5"><span class="val" id="g_disttauV"></span></div>
   <div class="set"><label>GR method (A/B test)</label><select id="g_grmethod" style="flex:2;background:#0B1015;color:#fff;border:1px solid var(--line);border-radius:10px;padding:8px;font-size:13px;">
-    <option value="baroSm">1 · Baro · dist (haversine) · smoothed</option>
-    <option value="baroTime">2 · Baro · time (gspd÷sink) · smoothed</option>
-    <option value="gpsSm">3 · GPS · dist (haversine) · smoothed</option>
-    <option value="gpsTime">4 · GPS · time (gspd÷sink) · smoothed</option>
-    <option value="baroSpdC">5 · Baro · XCTrack computed-spd dist</option>
-    <option value="baroSpdG">6 · Baro · XCTrack gps-spd dist</option>
-    <option value="baroReg">7 · Baro · dist · raw</option>
-    <option value="gpsReg">8 · GPS · dist · raw</option>
+    <option value="origComp">1 · ORIGINAL: XCTrack speed ÷ baro sink</option>
+    <option value="origGps">2 · XCTrack GPS speed ÷ baro sink</option>
+    <option value="baroSm">3 · Baro · haversine dist · smoothed</option>
+    <option value="baroTime">4 · Baro · time gspd÷sink · smoothed</option>
+    <option value="baroReg">5 · Baro · haversine dist · raw</option>
+    <option value="gpsReg">6 · GPS · haversine dist · raw</option>
   </select><span class="val"></span></div>
   <div class="set"><label style="flex:1.4;color:var(--dim)">All methods (live compare)</label><span id="grAll" style="flex:2;font-family:ui-monospace,monospace;font-size:11px;color:var(--acc);white-space:pre-line;line-height:1.5;"></span></div>
   <div class="set"><label style="flex:1.4;color:var(--dim)">Fix-clock diagnostic</label><span id="fixDiag" style="flex:2;font-family:ui-monospace,monospace;font-size:11px;color:var(--warn);">waiting…</span></div>
@@ -250,7 +248,7 @@ var GR_MIN=4, GR_MAX=20, EPS=0.01;
 function defaults(){
   var thr=9;
   return {
-    avg:6, thr:thr, vol:40, muteInf:true, altSrc:"baro", grMethod:"baroSm", altTau:2.5, distTau:1.0, varioAvg:3, varioTau:1.0,
+    avg:6, thr:thr, vol:40, muteInf:true, altSrc:"baro", grMethod:"origComp", altTau:2.5, distTau:1.0, varioAvg:3, varioTau:1.0,
     curves:{
       pitch:[{gr:4,v:175},{gr:5,v:300},{gr:thr-EPS,v:300},{gr:thr+EPS,v:450},{gr:16.5,v:575},{gr:20,v:625}],
       rate: [{gr:4,v:1.25},{gr:5.5,v:1.25},{gr:thr-EPS,v:1.25},{gr:thr+EPS,v:1.25},{gr:16,v:1.5},{gr:20,v:1.75}],
@@ -308,7 +306,7 @@ $("varioLbl") && ($("varioLbl").textContent=(S.varioAvg||3)+"s");
     if(key==="vol"&&outVol&&ctx) outVol.gain.setTargetAtTime(volGain(S.vol),ctx.currentTime,0.03);
     applyLive(); };
 }
-if(S.avg<4) S.avg=4;
+if(S.avg<6) S.avg=6;
 bindG("g_avg","avg"); bindG("g_vol","vol"); bindG("g_mute","muteInf");
 bindG("g_alttau","altTau");
 bindG("g_disttau","distTau");
@@ -1000,7 +998,8 @@ function ingest(ftime,baroA,gpsA,lat,lon,isValid,spdC,spdG){
   distGEMA=(distGEMA===null)?cumDistG:distGEMA+ad*(cumDistG-distGEMA);
   samples.push({t:t, baro:baroA, gps:gpsA, baroS:baroEMA, gpsS:gpsEMA,
                 dist:cumDist, distS:distEMA,
-                distC:cumDistC, distCS:distCEMA, distG:cumDistG, distGS:distGEMA});
+                distC:cumDistC, distCS:distCEMA, distG:cumDistG, distGS:distGEMA,
+                spdC:spdC, spdG:spdG});
   var horizon=Math.max(S.avg,3)*1000+500;
   while(samples.length&&t-samples[0].t>horizon) samples.shift();
   tickCount++;
@@ -1082,22 +1081,33 @@ function grMethods(t){
     if(sink===null||gspd===null) return undefined;
     return (sink<-1e-5)?(gspd/(-sink)):Infinity;
   }
+  // ORIGINAL METHOD (validated sink): GR = avg XCTrack speed / sink,
+  // sink = regression slope of RAW baro altitude vs time over the window.
+  function grOriginal(spdKey,altKey){
+    var ts=[],ys=[],sp=0,nsp=0;
+    for(var i=0;i<win.length;i++){ if(win[i][altKey]==null) continue;
+      ts.push((win[i].t-win[0].t)/1000); ys.push(win[i][altKey]);
+      if(win[i][spdKey]!=null){ sp+=win[i][spdKey]; nsp++; } }
+    if(ts.length<3||nsp<1) return undefined;
+    var sink=slopeFit(ts,ys);                 // m/s (negative = descending)
+    if(sink===null) return undefined;
+    var avgSpd=sp/nsp;                          // mean XCTrack speed
+    return (sink<-0.05)?(avgSpd/(-sink)):Infinity;
+  }
   var R={};
-  R.baroSm  =grDist("baroS","distS");    // 1: haversine dist, smoothed
-  R.baroTime=grTime("baroS","distS");    // 2: time gspd/sink, smoothed
-  R.gpsSm   =grDist("gpsS","distS");     // 3
-  R.gpsTime =grTime("gpsS","distS");     // 4
-  R.baroSpdC=grDist("baroS","distCS");   // 5: distance from XCTrack computed speed
-  R.baroSpdG=grDist("baroS","distGS");   // 6: distance from XCTrack gps speed
-  R.baroReg =grDist("baro","dist");      // 7: raw
-  R.gpsReg  =grDist("gps","dist");       // 8: raw
+  R.origComp=grOriginal("spdC","baro");   // 1: XCTrack computed speed / baro sink  (ORIGINAL)
+  R.origGps =grOriginal("spdG","baro");   // 2: XCTrack gps speed / baro sink
+  R.baroSm  =grDist("baroS","distS");     // 3: haversine dist regression, smoothed
+  R.baroTime=grTime("baroS","distS");     // 4: time gspd/sink, smoothed
+  R.baroReg =grDist("baro","dist");       // 5: haversine dist regression, raw
+  R.gpsReg  =grDist("gps","dist");        // 6
   return R;
 }
 function compute(t){
   if(samples.length<3) return;
-  var useGps=(S.grMethod==="gpsSm"||S.grMethod==="gpsReg"||S.grMethod==="gpsTime");
-  var rawMethod=(S.grMethod==="baroReg"||S.grMethod==="gpsReg");
-  var altKey=useGps?(rawMethod?"gps":"gpsS"):(rawMethod?"baro":"baroS");
+  var useGps=(S.grMethod==="gpsReg");
+  var rawMethod=(S.grMethod==="baroReg"||S.grMethod==="gpsReg"||S.grMethod==="origComp"||S.grMethod==="origGps");
+  var altKey=useGps?"gps":"baro";
   var last=samples[samples.length-1];
   var altNow=last[altKey]!=null?last[altKey]:(last.baro!=null?last.baro:last.gps);
   // ---- Vario: vertical speed over the vario-averaging window, from baro alt ----
@@ -1135,7 +1145,7 @@ function compute(t){
   var M=grMethods(t);
   var gr=(M[S.grMethod]!==undefined)?M[S.grMethod]:null;
   // live compare panel
-  var names={baroSm:"1bD",baroTime:"2bT",gpsSm:"3gD",gpsTime:"4gT",baroSpdC:"5cmp",baroSpdG:"6gps",baroReg:"7raw",gpsReg:"8graw"};
+  var names={origComp:"1orig",origGps:"2oGps",baroSm:"3bD",baroTime:"4bT",baroReg:"5raw",gpsReg:"6graw"};
   var lines=[];
   for(var k in names){ if(M[k]!==undefined){
     var val=M[k]; lines.push(names[k]+":"+(!isFinite(val)?"∞":val.toFixed(1))); } }
@@ -1161,7 +1171,7 @@ function updateGRDisplay(){
 }
 setInterval(poll,200);
 edResize();
-log("v0.36: vario now has its own averaging window (match XCTrack) + smoothing slider + 3-way compare.");
+log("v0.37: original method restored (XCTrack speed ÷ validated baro sink) as default; GR avg min 6.");
 
 // ================= offline caching =================
 if("serviceWorker" in navigator){

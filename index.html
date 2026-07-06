@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>Glide Vario v0.29</title>
+<title>Glide Vario v0.30</title>
 <style>
   :root { --bg:#0A0D11; --ink:#F2F5F7; --ok:#2FD97B; --dim:#7C8894; --acc:#4FC3F7; --warn:#FFB74D;
           --sky:#4FC3F7; --green:#2FBE6A; --amber:#F09B2E; --mag:#E36BD6;
@@ -136,7 +136,7 @@
 <body>
 
 <div id="status">Waiting for XCTrack data…</div>
-<div id="miniVer">v0.29</div>
+<div id="miniVer">v0.30</div>
 
 <div class="row r1">
   <div class="card" id="grCard" style="position:relative;">
@@ -176,6 +176,7 @@
     <option value="ratioAvg">7 · Average of instant ratios</option>
   </select><span class="val"></span></div>
   <div class="set"><label style="flex:1.4;color:var(--dim)">All methods (live compare)</label><span id="grAll" style="flex:2;font-family:ui-monospace,monospace;font-size:11px;color:var(--acc);white-space:pre-line;line-height:1.5;"></span></div>
+  <div class="set"><label style="flex:1.4;color:var(--dim)">Fix-clock diagnostic</label><span id="fixDiag" style="flex:2;font-family:ui-monospace,monospace;font-size:11px;color:var(--warn);">waiting…</span></div>
 
   <div class="sec">Tone curves — drag dots &amp; the threshold line</div>
   <div id="edWrap">
@@ -925,15 +926,34 @@ function poll(){
       var spd=(d.speedComputed!=null)?d.speedComputed:d.speedGps;
       if(!gotData){ gotData=true; log("First sample: "+JSON.stringify(d).substr(0,300)); }
       curSpdGps=(d.speedGps!=null)?d.speedGps:0;
-      ingest(Date.now(),alt,spd,d.lat,d.lon);
+      // Prefer XCTrack's own fix timestamp; fall back to our clock if absent
+      var ftime=(d.time!=null&&isFinite(d.time))?Number(d.time):null;
+      ingest(ftime,alt,spd,d.lat,d.lon,d.isValid);
     }catch(e){ log("parse err: "+e.message); }
   } else if(!gotData){
     $("status").textContent="No XCTrack data — check 'Allow web page to access XCTrack data'. Waiting…";
   }
 }
 var curSpdGps=0;
-function ingest(t,alt,spd,lat,lon){
+var lastFixTime=null, usingFixClock=false;
+var fixDeltas=[];   // recent inter-fix time deltas (ms) for the diagnostic
+function ingest(ftime,alt,spd,lat,lon,isValid){
   if(alt==null) return;
+  var now=Date.now();
+  // Determine the sample's timestamp: XCTrack fix time if usable, else our clock.
+  var t, isNewFix=true;
+  if(ftime!=null){
+    usingFixClock=true;
+    if(lastFixTime!=null){
+      if(ftime===lastFixTime){ isNewFix=false; }      // same fix polled again → skip
+      else { fixDeltas.push(ftime-lastFixTime); if(fixDeltas.length>20) fixDeltas.shift(); }
+    }
+    t=ftime;
+  } else {
+    usingFixClock=false; t=now;
+  }
+  if(!isNewFix){ maybeShowHz(now); return; }           // dedupe: one sample per fix
+  lastFixTime=ftime;
   if(lat!=null&&lon!=null){
     if(lastLat!=null){
       var st=stepDist(lastLat,lastLon,lat,lon);
@@ -945,12 +965,23 @@ function ingest(t,alt,spd,lat,lon){
   var horizon=Math.max(S.avg,3)*1000+500;
   while(samples.length&&t-samples[0].t>horizon) samples.shift();
   tickCount++;
-  var now=Date.now();
-  if(now-lastHzT>=2000){
-    $("hz").innerHTML=(tickCount/((now-lastHzT)/1000)).toFixed(1)+'<span class="unit"> Hz</span>';
-    tickCount=0; lastHzT=now;
-  }
+  maybeShowHz(now);
   compute(t,alt,spd);
+}
+function maybeShowHz(now){
+  if(now-lastHzT>=2000){
+    var fixHz=tickCount/((now-lastHzT)/1000);
+    var med="–";
+    if(fixDeltas.length){
+      var srt=fixDeltas.slice().sort(function(a,b){return a-b;});
+      med=srt[Math.floor(srt.length/2)];
+    }
+    $("hz").innerHTML=fixHz.toFixed(1)+'<span class="unit"> Hz</span>';
+    var clk=usingFixClock?("fix Δ"+med+"ms"):"our clock";
+    var dg=$("fixDiag"); if(dg) dg.textContent="Fix clock: "+(usingFixClock?"YES":"no (fallback)")+" · "+fixHz.toFixed(1)+" fix/s · median Δ "+med+" ms";
+    tickCount=0; lastHzT=now; return true;
+  }
+  return false;
 }
 function windowStats(ms){
   var t=samples[samples.length-1].t, first=null;
@@ -1042,7 +1073,7 @@ function updateGRDisplay(){
 }
 setInterval(poll,200);
 edResize();
-log("v0.29: GR method A/B dropdown (7 strategies) + live all-methods compare panel.");
+log("v0.30: dedupe on XCTrack fix time + use fix clock for all GR math; fix-rate diagnostic.");
 
 // ================= offline caching =================
 if("serviceWorker" in navigator){

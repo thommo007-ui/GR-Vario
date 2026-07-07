@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>Glide Vario v0.38</title>
+<title>Glide Vario v0.39</title>
 <style>
   :root { --bg:#0A0D11; --ink:#F2F5F7; --ok:#2FD97B; --dim:#7C8894; --acc:#4FC3F7; --warn:#FFB74D;
           --sky:#4FC3F7; --green:#2FBE6A; --amber:#F09B2E; --mag:#E36BD6;
@@ -136,7 +136,7 @@
 <body>
 
 <div id="status">Waiting for XCTrack data…</div>
-<div id="miniVer">v0.38</div>
+<div id="miniVer">v0.39</div>
 
 <div class="row r1">
   <div class="card" id="grCard" style="position:relative;">
@@ -165,27 +165,6 @@
   <div class="set"><label>GR averaging (s)</label><input type="range" id="g_avg" min="6" max="30" step="1"><span class="val" id="g_avgV"></span></div>
   <div class="set"><label>Master volume</label><input type="range" id="g_vol" min="0" max="100" step="5"><span class="val" id="g_volV"></span></div>
   <div class="set"><label>Mute when GR infinite (no net sink)</label><input type="checkbox" id="g_mute"><span class="val"></span></div>
-  <div class="set"><label>GR altitude source</label><select id="g_altsrc" style="flex:2;background:#0B1015;color:#fff;border:1px solid var(--line);border-radius:10px;padding:8px;font-size:13px;"><option value="baro">Baro (smooth)</option><option value="gps">GPS (compare with XCTrack)</option></select><span class="val"></span></div>
-  <div class="set"><label>Vario averaging (s) — match XCTrack</label><input type="range" id="g_varioavg" min="1" max="20" step="1"><span class="val" id="g_varioavgV"></span></div>
-  <div class="set"><label>Vario smoothing (s)</label><input type="range" id="g_variotau" min="0" max="6" step="0.5"><span class="val" id="g_variotauV"></span></div>
-  <div class="set"><label style="flex:1.4;color:var(--dim)">Vario compare (raw / light / heavy)</label><span id="varioAll" style="flex:2;font-family:ui-monospace,monospace;font-size:11px;color:var(--acc);"></span></div>
-  <div class="set"><label>Sink smoothing (s) — GR only</label><input type="range" id="g_alttau" min="0.5" max="6" step="0.5"><span class="val" id="g_alttauV"></span></div>
-  <div class="set"><label>Speed smoothing (s)</label><input type="range" id="g_disttau" min="0.5" max="6" step="0.5"><span class="val" id="g_disttauV"></span></div>
-  <div class="set"><label>GR method (A/B test)</label><select id="g_grmethod" style="flex:2;background:#0B1015;color:#fff;border:1px solid var(--line);border-radius:10px;padding:8px;font-size:13px;">
-    <option value="origComp">1 · ORIGINAL: XCTrack speed ÷ baro sink</option>
-    <option value="origGps">2 · XCTrack GPS speed ÷ baro sink</option>
-    <option value="baroSm">3 · Baro · haversine dist · smoothed</option>
-    <option value="baroTime">4 · Baro · time gspd÷sink · smoothed</option>
-    <option value="baroReg">5 · Baro · haversine dist · raw</option>
-    <option value="gpsReg">6 · GPS · haversine dist · raw</option>
-  </select><span class="val"></span></div>
-  <div class="set"><label style="flex:1.4;color:var(--dim)">All methods (live compare)</label><span id="grAll" style="flex:2;font-family:ui-monospace,monospace;font-size:11px;color:var(--acc);white-space:pre-line;line-height:1.5;"></span></div>
-  <div class="set"><label style="flex:1.4;color:var(--dim)">Fix-clock diagnostic</label><span id="fixDiag" style="flex:2;font-family:ui-monospace,monospace;font-size:11px;color:var(--warn);">waiting…</span></div>
-  <div class="set"><label style="flex:1.4;color:var(--dim)">Flight data log (<span id="logCount">0 rows</span>)</label>
-    <span style="flex:2;display:flex;gap:8px;">
-      <span class="supCopy" id="logCopy" style="flex:1;text-align:center;">Copy CSV</span>
-      <span class="supCopy" id="logClear" style="flex:1;text-align:center;">Clear</span>
-    </span></div>
 
   <div class="sec">Tone curves — drag dots &amp; the threshold line</div>
   <div id="edWrap">
@@ -210,6 +189,22 @@
     <div class="sd badL" id="sdBad"><div class="sdT">Bad air sound (left of threshold)</div></div>
     <div class="sd goodL" id="sdGood"><div class="sdT">Good air sound (right of threshold)</div></div>
   </div>
+</details>
+
+<details>
+  <summary>Advanced · diagnostics</summary>
+  <div class="set"><label>GR method</label><select id="g_grmethod" style="flex:2;background:#0B1015;color:#fff;border:1px solid var(--line);border-radius:10px;padding:8px;font-size:13px;">
+    <option value="origComp">1 · Original: XCTrack speed ÷ baro sink</option>
+    <option value="xcsoarEma">2 · Experiment: XCSoar-style exponential GR</option>
+  </select><span class="val"></span></div>
+  <div class="set"><label style="flex:1.4;color:var(--dim)">Method compare (live)</label><span id="grAll" style="flex:2;font-family:ui-monospace,monospace;font-size:11px;color:var(--acc);white-space:pre-line;line-height:1.5;"></span></div>
+  <div class="set"><label>Vario averaging (s) — match XCTrack</label><input type="range" id="g_varioavg" min="1" max="20" step="1"><span class="val" id="g_varioavgV"></span></div>
+  <div class="set"><label style="flex:1.4;color:var(--dim)">Fix-clock diagnostic</label><span id="fixDiag" style="flex:2;font-family:ui-monospace,monospace;font-size:11px;color:var(--warn);">waiting…</span></div>
+  <div class="set"><label style="flex:1.4;color:var(--dim)">Flight data log (<span id="logCount">0 rows</span>)</label>
+    <span style="flex:2;display:flex;gap:8px;">
+      <span class="supCopy" id="logCopy" style="flex:1;text-align:center;">Copy CSV</span>
+      <span class="supCopy" id="logClear" style="flex:1;text-align:center;">Clear</span>
+    </span></div>
 </details>
 
 <details>
@@ -253,7 +248,7 @@ var GR_MIN=4, GR_MAX=20, EPS=0.01;
 function defaults(){
   var thr=9;
   return {
-    avg:6, thr:thr, vol:40, muteInf:true, altSrc:"baro", grMethod:"origComp", altTau:2.5, distTau:1.0, varioAvg:3, varioTau:1.0,
+    avg:6, thr:thr, vol:40, muteInf:true, grMethod:"origComp", varioAvg:6,
     curves:{
       pitch:[{gr:4,v:175},{gr:5,v:300},{gr:thr-EPS,v:300},{gr:thr+EPS,v:450},{gr:16.5,v:575},{gr:20,v:625}],
       rate: [{gr:4,v:1.25},{gr:5.5,v:1.25},{gr:thr-EPS,v:1.25},{gr:thr+EPS,v:1.25},{gr:16,v:1.5},{gr:20,v:1.75}],
@@ -311,15 +306,19 @@ $("varioLbl") && ($("varioLbl").textContent=(S.varioAvg||3)+"s");
     if(key==="vol"&&outVol&&ctx) outVol.gain.setTargetAtTime(volGain(S.vol),ctx.currentTime,0.03);
     applyLive(); };
 }
-if(S.avg<6) S.avg=6;
+// v0.39 cleanup: only two GR methods remain.  Settings can arrive from an
+// older widget instance via the localStorage sync loop, not just from our own
+// load, so normalization must run on BOTH paths or the GR display dies on an
+// unknown method value.
+function normalizeSettings(){
+  if(S.avg<6) S.avg=6;
+  if(S.grMethod!=="origComp"&&S.grMethod!=="xcsoarEma") S.grMethod="origComp";
+  if(!S.varioAvg||S.varioAvg<1) S.varioAvg=6;
+}
+normalizeSettings();
 bindG("g_avg","avg"); bindG("g_vol","vol"); bindG("g_mute","muteInf");
-bindG("g_alttau","altTau");
-bindG("g_disttau","distTau");
 bindG("g_varioavg","varioAvg");
-bindG("g_variotau","varioTau");
-$("g_altsrc").value=S.altSrc||"baro";
-$("g_altsrc").onchange=function(){ S.altSrc=this.value; save(); };
-$("g_grmethod").value=S.grMethod||"regDist";
+$("g_grmethod").value=S.grMethod;
 $("g_grmethod").onchange=function(){ S.grMethod=this.value; save(); };
 $("avgLbl").textContent="("+S.avg+"s avg)";
 $("varioLbl") && ($("varioLbl").textContent=(S.varioAvg||3)+"s");
@@ -327,12 +326,8 @@ function refreshGeneralUI(){
   $("g_avg").value=S.avg; $("g_avgV").textContent=S.avg;
   $("g_vol").value=S.vol; $("g_volV").textContent=S.vol;
   $("g_mute").checked=S.muteInf;
-  $("g_alttau").value=S.altTau||2.5; $("g_alttauV").textContent=S.altTau||2.5;
-  $("g_disttau").value=S.distTau||1.0; $("g_disttauV").textContent=S.distTau||1.0;
-  $("g_varioavg").value=S.varioAvg||3; $("g_varioavgV").textContent=S.varioAvg||3;
-  $("g_variotau").value=(S.varioTau!=null?S.varioTau:1.0); $("g_variotauV").textContent=(S.varioTau!=null?S.varioTau:1.0);
-  $("g_altsrc").value=S.altSrc||"baro";
-  $("g_grmethod").value=S.grMethod||"regDist";
+  $("g_varioavg").value=S.varioAvg||6; $("g_varioavgV").textContent=S.varioAvg||6;
+  $("g_grmethod").value=S.grMethod||"origComp";
   $("avgLbl").textContent="("+S.avg+"s avg)";
 $("varioLbl") && ($("varioLbl").textContent=(S.varioAvg||3)+"s");
 }
@@ -811,6 +806,7 @@ setInterval(function(){
       var o=JSON.parse(sv);
       if(o.curves&&o.snd){
         S=o; lastSettingsJson=sv;
+        normalizeSettings();
         refreshGeneralUI(); refreshSdUI(); solidCfgKey="";
         edDraw(); applyLive();
         log("Settings synced from other widget");
@@ -941,8 +937,7 @@ function poll(){
       var baroA=(d.stdBaroAlt!=null)?d.stdBaroAlt:null;
       var gpsA=(d.altGps!=null)?d.altGps:null;
       // display uses whichever the current GR method needs
-      var showBaro=(S.grMethod==="baroReg"||S.grMethod==="baroSm");
-      $("altSrc").textContent=showBaro?(baroA!=null?"baro":"gps"):(gpsA!=null?"gps":"baro");
+      $("altSrc").textContent=(baroA!=null)?"baro":"gps";
       if(!gotData){ gotData=true; log("First sample: "+JSON.stringify(d).substr(0,300)); }
       var ftime=(d.time!=null&&isFinite(d.time))?Number(d.time):null;
       var spdC=(d.speedComputed!=null)?d.speedComputed:null;
@@ -955,14 +950,13 @@ function poll(){
 }
 var lastFixTime=null, usingFixClock=false;
 var flightLog=[];  // per-fix rows for offline analysis / XCTrack reverse-engineering
-var baroEMA=null, gpsEMA=null, distEMA=null, distCEMA=null, distGEMA=null;   // low-pass EMAs
+var emaGrad=null;   // XCSoar-style smoothed glide gradient (1/GR), updated per fix in ingest()
 var fixDeltas=[];   // recent inter-fix time deltas (ms) for the diagnostic
 function resetTrack(reason){
   samples.length=0; cumDist=0; lastLat=null; lastLon=null;
-  baroEMA=null; gpsEMA=null; distEMA=null; distCEMA=null; distGEMA=null; cumDistC=0; cumDistG=0; lastFixTime=null; fixDeltas.length=0;
+  emaGrad=null; lastFixTime=null; fixDeltas.length=0;
   log("Track reset ("+reason+")");
 }
-var cumDistC=0, cumDistG=0;
 function ingest(ftime,baroA,gpsA,lat,lon,isValid,spdC,spdG){
   if(baroA==null&&gpsA==null) return;
   var now=Date.now();
@@ -980,36 +974,39 @@ function ingest(ftime,baroA,gpsA,lat,lon,isValid,spdC,spdG){
   if(!isNewFix){ maybeShowHz(now); return; }
   lastFixTime=ftime;
   // cumulative ground distance from lat/lon only
+  var st=null;
   if(lat!=null&&lon!=null){
     if(lastLat!=null){
-      var st=stepDist(lastLat,lastLon,lat,lon);
+      st=stepDist(lastLat,lastLon,lat,lon);
       if(st>300){ resetTrack("position jump "+Math.round(st)+"m"); lastLat=lat; lastLon=lon;
         maybeShowHz(now); return; }
       cumDist+=st;
     }
     lastLat=lat; lastLon=lon;
   }
-  // time-aware EMA on BOTH altitude streams
-  var prevT=samples.length?samples[samples.length-1].t:null;
-  var dtf=prevT!=null?Math.max((t-prevT)/1000,0.001):1;
-  // integrate XCTrack's own speeds into their own cumulative distances
-  if(spdC!=null&&prevT!=null) cumDistC+=spdC*dtf;
-  if(spdG!=null&&prevT!=null) cumDistG+=spdG*dtf;
-  var a=1-Math.exp(-dtf/(S.altTau||2.5));
-  if(baroA!=null){ baroEMA=(baroEMA===null)?baroA:baroEMA+a*(baroA-baroEMA); }
-  if(gpsA!=null){ gpsEMA=(gpsEMA===null)?gpsA:gpsEMA+a*(gpsA-gpsEMA); }
-  var ad=1-Math.exp(-dtf/(S.distTau||1.0));
-  distEMA=(distEMA===null)?cumDist:distEMA+ad*(cumDist-distEMA);
-  distCEMA=(distCEMA===null)?cumDistC:distCEMA+ad*(cumDistC-distCEMA);
-  distGEMA=(distGEMA===null)?cumDistG:distGEMA+ad*(cumDistG-distGEMA);
-  samples.push({t:t, baro:baroA, gps:gpsA, baroS:baroEMA, gpsS:gpsEMA,
-                dist:cumDist, distS:distEMA,
-                distC:cumDistC, distCS:distCEMA, distG:cumDistG, distGS:distGEMA,
-                spdC:spdC, spdG:spdG});
+  var prev=samples.length?samples[samples.length-1]:null;
+  var dtf=prev?Math.max((t-prev.t)/1000,0.001):1;
+  // XCSoar-style GR (method 2): exponential low-pass on the glide GRADIENT
+  // (1/GR), never on GR itself — GR sweeps through ±infinity whenever sink
+  // crosses zero, while the gradient stays small and continuous (this is how
+  // XCSoar's UpdateGR works).  Tests the hypothesis that XCTrack's averaging
+  // is exponential rather than a sliding window.  tau = S.avg/2 gives the EMA
+  // the same mean age as a sliding window of length S.avg, so a 6s setting
+  // here stays comparable with a 6s setting in XCTrack.
+  if(prev&&st!=null&&st>=0.5){
+    var useBaro=(prev.baro!=null&&baroA!=null);
+    var aPrev=useBaro?prev.baro:prev.gps, aNow=useBaro?baroA:gpsA;
+    if(aPrev!=null&&aNow!=null){
+      var grad=(aPrev-aNow)/st;                     // positive = descending
+      var ga=1-Math.exp(-dtf/(Math.max(S.avg,6)/2));
+      emaGrad=(emaGrad===null)?grad:emaGrad+ga*(grad-emaGrad);
+    }
+  }
+  samples.push({t:t, baro:baroA, gps:gpsA, dist:cumDist, spdC:spdC, spdG:spdG});
   flightLog.push([t,baroA,gpsA,lat,lon,spdC,spdG].map(function(v){return v==null?"":(typeof v==="number"?+v.toFixed(7):v);}).join(","));
   if(flightLog.length>5400) flightLog.shift();
   var lc=$("logCount"); if(lc) lc.textContent=flightLog.length+" rows";
-  var horizon=Math.max(S.avg,3)*1000+500;
+  var horizon=Math.max(S.avg,S.varioAvg||6,3)*1000+500;
   while(samples.length&&t-samples[0].t>horizon) samples.shift();
   tickCount++;
   maybeShowHz(now);
@@ -1062,36 +1059,9 @@ function grMethods(t){
   if(dt<Math.min(S.avg*0.6,2)) return {};
   var dDist=(win[win.length-1].dist!==undefined)?win[win.length-1].dist-win[0].dist:null;
   if(dDist===null||dDist<1) return {};   // need real ground travel
-  // Regression of altitude vs cumulative ground distance, using ACTUAL fix
-  // timestamps implicitly (each fix contributes one point at its true distance).
-  // slope = metres-down per metre-forward → GR = -1/slope.
-  // Original method (most accurate in testing): regression of altitude vs ground
-  // distance, slope = metres-down per metre-forward → GR = -1/slope.
-  // altKey selects raw/smoothed altitude; distKey selects raw/smoothed distance.
-  // The two smoothing sliders (Sink, Speed) independently steady each axis so the
-  // lead/lag against XCTrack can be tuned out.
-  // Distance-based GR: regress altitude vs cumulative distance, GR = -1/slope
-  function grDist(altKey,distKey){
-    var xs=[],ys=[];
-    for(var i=0;i<win.length;i++){ if(win[i][altKey]==null||win[i][distKey]==null) continue;
-      xs.push(win[i][distKey]); ys.push(win[i][altKey]); }
-    if(xs.length<3) return undefined;
-    var sl=slopeFit(xs,ys);
-    if(sl===null) return undefined;
-    return (sl<-1e-5)?-1/sl:Infinity;
-  }
-  // Time-based GR: groundspeed ÷ sink, each a regression slope vs time
-  function grTime(altKey,distKey){
-    var ts=[],ys=[],ds=[];
-    for(var i=0;i<win.length;i++){ if(win[i][altKey]==null||win[i][distKey]==null) continue;
-      ts.push((win[i].t-win[0].t)/1000); ys.push(win[i][altKey]); ds.push(win[i][distKey]); }
-    if(ts.length<3) return undefined;
-    var sink=slopeFit(ts,ys), gspd=slopeFit(ts,ds);
-    if(sink===null||gspd===null) return undefined;
-    return (sink<-1e-5)?(gspd/(-sink)):Infinity;
-  }
-  // ORIGINAL METHOD (validated sink): GR = avg XCTrack speed / sink,
-  // sink = regression slope of RAW baro altitude vs time over the window.
+  // METHOD 1 — ORIGINAL (default): GR = mean XCTrack speed ÷ sink, where sink
+  // is the regression slope of RAW baro altitude vs time over the window.
+  // The 6s/unsmoothed sink was validated against XCTrack's own vario.
   function grOriginal(spdKey,altKey){
     var ts=[],ys=[],sp=0,nsp=0;
     for(var i=0;i<win.length;i++){ if(win[i][altKey]==null) continue;
@@ -1103,26 +1073,27 @@ function grMethods(t){
     var avgSpd=sp/nsp;                          // mean XCTrack speed
     return (sink<-0.05)?(avgSpd/(-sink)):Infinity;
   }
+  // baro preferred, GPS altitude fallback for devices without a baro sensor
+  var hasBaro=false;
+  for(var hb=0;hb<win.length;hb++){ if(win[hb].baro!=null){ hasBaro=true; break; } }
   var R={};
-  R.origComp=grOriginal("spdC","baro");   // 1: XCTrack computed speed / baro sink  (ORIGINAL)
-  R.origGps =grOriginal("spdG","baro");   // 2: XCTrack gps speed / baro sink
-  R.baroSm  =grDist("baroS","distS");     // 3: haversine dist regression, smoothed
-  R.baroTime=grTime("baroS","distS");     // 4: time gspd/sink, smoothed
-  R.baroReg =grDist("baro","dist");       // 5: haversine dist regression, raw
-  R.gpsReg  =grDist("gps","dist");        // 6
+  R.origComp=grOriginal("spdC",hasBaro?"baro":"gps");
+  // METHOD 2 — EXPERIMENT: XCSoar-style exponential GR.  The state (emaGrad)
+  // is updated once per fix in ingest(); here it is only read out.  Gradients
+  // flatter than 1/999 — including net climbing — read as infinite; steeper
+  // than 1 clamps to GR 1 (XCSoar's LimitGR bounds).
+  if(emaGrad!==null)
+    R.xcsoarEma=(emaGrad>1/999)?Math.max(1/emaGrad,1):Infinity;
   return R;
 }
 function compute(t){
   if(samples.length<3) return;
-  var useGps=(S.grMethod==="gpsReg");
-  var rawMethod=(S.grMethod==="baroReg"||S.grMethod==="gpsReg"||S.grMethod==="origComp"||S.grMethod==="origGps");
-  var altKey=useGps?"gps":"baro";
   var last=samples[samples.length-1];
-  var altNow=last[altKey]!=null?last[altKey]:(last.baro!=null?last.baro:last.gps);
+  var altNow=(last.baro!=null)?last.baro:last.gps;
   // ---- Vario: vertical speed over the vario-averaging window, from baro alt ----
-  // Regress altitude vs time over the window → slope = vertical speed (m/s).
-  // This matches XCTrack's "vertical speed / Xs" when the window is set equal.
-  var vAvg=(S.varioAvg||3)*1000;
+  // Regress RAW altitude vs time over the window → slope = vertical speed (m/s).
+  // Validated: matches XCTrack's "vertical speed / Xs" when windows are equal (6s+).
+  var vAvg=(S.varioAvg||6)*1000;
   var vWin=[];
   for(var vi=samples.length-1;vi>=0;vi--){ if(last.t-samples[vi].t<=vAvg) vWin.unshift(samples[vi]); else break; }
   function vsFrom(key){
@@ -1134,27 +1105,11 @@ function compute(t){
     var sl=slopeFit(ts,ys);           // m/s
     return sl===null?0:sl;
   }
-  // three-way diagnostic
-  var vsRaw=vsFrom("baro"), vsLight=vsFrom("baroS");
-  // heavy: use the varioTau EMA (separate, stronger low-pass) — compute inline
-  var vsHeavy=vsRaw;
-  if(vWin.length>=2){
-    var tau=(S.varioTau!=null?S.varioTau:1.0);
-    if(tau>0.01){
-      var em=null,prev=null,heavyFirst=null,heavyLast=null,ht0=null,htL=null;
-      for(var h=0;h<vWin.length;h++){ var yv=vWin[h].baro; if(yv==null) continue;
-        if(em===null){ em=yv; ht0=vWin[h].t; } 
-        else { var dh=Math.max((vWin[h].t-prev)/1000,0.001); var af=1-Math.exp(-dh/tau); em+=af*(yv-em); }
-        prev=vWin[h].t; heavyLast=em; htL=vWin[h].t; if(heavyFirst===null){heavyFirst=em;} }
-      if(heavyFirst!==null&&htL>ht0) vsHeavy=(heavyLast-heavyFirst)/((htL-ht0)/1000);
-    } else vsHeavy=vsRaw;
-  }
-  currentVS=(S.varioTau>0.01)?vsHeavy:vsLight;   // displayed vario uses your smoothing
-  var va=$("varioAll"); if(va) va.textContent=vsRaw.toFixed(1)+" / "+vsLight.toFixed(1)+" / "+vsHeavy.toFixed(1);
+  currentVS=vsFrom(last.baro!=null?"baro":"gps");
   var M=grMethods(t);
   var gr=(M[S.grMethod]!==undefined)?M[S.grMethod]:null;
-  // live compare panel
-  var names={origComp:"1orig",origGps:"2oGps",baroSm:"3bD",baroTime:"4bT",baroReg:"5raw",gpsReg:"6graw"};
+  // live compare panel (Advanced section)
+  var names={origComp:"orig",xcsoarEma:"xcs"};
   var lines=[];
   for(var k in names){ if(M[k]!==undefined){
     var val=M[k]; lines.push(names[k]+":"+(!isFinite(val)?"∞":val.toFixed(1))); } }
@@ -1180,7 +1135,7 @@ function updateGRDisplay(){
 }
 setInterval(poll,200);
 edResize();
-log("v0.38: flight data logger (per-fix CSV export) for offline XCTrack reverse-engineering.");
+log("v0.39: settings cleanup + experimental XCSoar-style exponential GR (method 2).");
 
 // ================= offline caching =================
 if("serviceWorker" in navigator){

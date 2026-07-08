@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>Glide Vario v0.40</title>
+<title>Glide Vario v0.41</title>
 <style>
   :root { --bg:#0A0D11; --ink:#F2F5F7; --ok:#2FD97B; --dim:#7C8894; --acc:#4FC3F7; --warn:#FFB74D;
           --bad:#FF5A52; --sky:#4FC3F7; --green:#2FBE6A; --amber:#F09B2E; --mag:#E36BD6;
@@ -149,7 +149,7 @@
 <body>
 
 <div id="status">Waiting for XCTrack data…</div>
-<div id="miniVer">v0.40</div>
+<div id="miniVer">v0.41</div>
 
 <div class="row r1">
   <div class="card" id="grCard">
@@ -230,9 +230,9 @@ function defaults(){
   var thr=9;
   return {
     avg:12, thr:thr, vol:40, muteInf:true,
-    curves:{
-      pitch:[{gr:4,v:175},{gr:5,v:300},{gr:thr-EPS,v:300},{gr:thr+EPS,v:450},{gr:16.5,v:575},{gr:20,v:625}],
-      rate: [{gr:4,v:1.25},{gr:5.5,v:1.25},{gr:thr-EPS,v:1.25},{gr:thr+EPS,v:1.25},{gr:16,v:1.5},{gr:20,v:1.75}],
+    curves:{   // factory defaults = Luke's flight-tuned curves (v0.40 screenshot)
+      pitch:[{gr:4,v:175},{gr:5.5,v:275},{gr:thr-EPS,v:375},{gr:thr+EPS,v:475},{gr:16,v:575},{gr:20,v:625}],
+      rate: [{gr:4,v:1.25},{gr:5.5,v:1.25},{gr:thr-EPS,v:1.25},{gr:thr+EPS,v:1},{gr:16,v:1},{gr:20,v:1}],
       duty: [{gr:4,v:100},{gr:5,v:100},{gr:thr-EPS,v:100},{gr:thr+EPS,v:95},{gr:13.5,v:95},{gr:20,v:95}]
     },
     snd:{
@@ -667,10 +667,39 @@ function effGR(){
 }
 function sideOf(gr){ return gr<S.thr?"bad":"good"; }
 function muted(){
+  if(ownerBlocked()) return true;      // another widget page owns the speaker
   if(currentGR===null) return true;
   if(demoActive) return false;
   return S.muteInf&&!isFinite(currentGR);
 }
+
+/* ---- single-owner audio arbitration between the main and mini widgets ----
+   During an XCTrack page swipe BOTH WebViews can be visible at once, both
+   with sound enabled — the source of the overlapping-audio bug.  The page
+   the pilot is moving TO claims an ownership token in localStorage and
+   heartbeats it; any other page that sees a fresh foreign token mutes
+   immediately.  A token older than 1.2 s is stale (its owner died or was
+   hidden) and may be taken over.  Brief silence beats any overlap. */
+var IID=Math.random().toString(36).slice(2);
+function audioOwner(){
+  try{ var v=localStorage.getItem("gv_owner"); if(!v) return null;
+    var p=v.split("|"); return {id:p[0], ts:+p[1]||0}; }catch(e){ return null; }
+}
+function claimAudio(){ try{ localStorage.setItem("gv_owner",IID+"|"+Date.now()); }catch(e){} }
+function releaseAudio(){ try{ var o=audioOwner(); if(o&&o.id===IID) localStorage.removeItem("gv_owner"); }catch(e){} }
+function ownerBlocked(){ var o=audioOwner(); return !!(o&&o.id!==IID&&Date.now()-o.ts<1200); }
+var wasBlocked=false;
+setInterval(function(){
+  if(!soundOn||!pageVisible()) return;
+  var blocked=ownerBlocked();
+  if(!blocked) claimAudio();                    // keep (or take over) ownership
+  if(blocked!==wasBlocked){
+    wasBlocked=blocked;
+    if(blocked){ log("Audio owner elsewhere → muting"); hardMute(true); }
+    else if(ctx&&ctx.state!=="running"){ log("Audio ownership gained → resume"); resumeCleanly(); }
+    else applyLive();
+  }
+},400);
 var solidVoice=null, solidCfgKey="";
 function ensureSolidVoice(cfg,freq){
   var key=cfg.base+"|"+cfg.harm+"|"+cfg.fifth+"|"+cfg.chorus+"|"+cfg.warble;
@@ -758,6 +787,7 @@ function setSound(on){
   $("hint").style.display=on?"none":"";
   clearTimeout(beepTimer);
   if(on){
+    claimAudio(); wasBlocked=false;   // an explicit tap on THIS page takes ownership
     /* The state machine in applyLive() is the ONLY thing allowed to start the
        beep loop (off->beep transition).  Starting it here too used to fire a
        second, overlapping beep on the first tap — the "two audio sources for
@@ -804,7 +834,7 @@ setInterval(function(){
 function pageVisible(){ return document.visibilityState==="visible"; }
 setInterval(function(){
   if(!soundOn||!ctx) return;
-  if(!pageVisible()){ hardMute(true); return; }
+  if(!pageVisible()||ownerBlocked()){ hardMute(true); return; }
   if(ctx.state!=="running"){
     log("Watchdog: state="+ctx.state+" → clean resume");
     resumeCleanly();
@@ -837,7 +867,7 @@ function resumeCleanly(){
     master.gain.value=0;
     clearTimeout(beepTimer);
     applyLive();               // state machine restarts the beep loop exactly once
-    setTimeout(function(){ fadeMaster(1,0.06); },100);
+    setTimeout(function(){ if(!ownerBlocked()) fadeMaster(1,0.06); },100);
   });
 }
 document.addEventListener("visibilitychange",function(){
@@ -845,20 +875,19 @@ document.addEventListener("visibilitychange",function(){
   if(!ctx) return;
   if(pageVisible()){
     if(soundOn){
-      // Wait briefly for any other widget instance to release audio first,
-      // preventing ~500ms of overlap during a mini↔main page switch.
-      try{ localStorage.setItem("gv_wantAudio",String(Date.now())); }catch(e){}
-      setTimeout(function(){ if(pageVisible()&&soundOn) resumeCleanly(); },140);
-      log("Visible → audio restored (clean, staggered)");
+      claimAudio();      // take ownership: the other page mutes within one heartbeat
+      wasBlocked=false;
+      setTimeout(function(){ if(pageVisible()&&soundOn&&!ownerBlocked()) resumeCleanly(); },450);
+      log("Visible → audio ownership claimed, staggered resume");
     }
   } else {
     hardMute(true);
-    try{ localStorage.setItem("gv_released",String(Date.now())); }catch(e){}
-    log("Hidden → audio hard-muted");
+    releaseAudio();      // free the token so the other page can sound instantly
+    log("Hidden → audio hard-muted, ownership released");
   }
 });
-window.addEventListener("pagehide",function(){ hardMute(true); });
-window.addEventListener("blur",function(){ if(!pageVisible()) hardMute(true); });
+window.addEventListener("pagehide",function(){ hardMute(true); releaseAudio(); });
+window.addEventListener("blur",function(){ if(!pageVisible()){ hardMute(true); releaseAudio(); } });
 
 // ================= demo sweep + audition =================
 var strip=$("audition");
@@ -910,7 +939,10 @@ function stepDist(lat1,lon1,lat2,lon2){    // haversine, metres
   return 2*R*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
 }
 function poll(){
-  if(document.hidden) return;   // battery: idle while backgrounded (audio is hard-muted there too)
+  /* Keep INGESTING while backgrounded — the pilot swaps between the main and
+     mini pages constantly, and a starved buffer meant GR had to rebuild for a
+     full window after every swap (v0.40 regression).  Only the display/audio
+     work is skipped while hidden (see compute()). */
   var raw=null;
   try{ if(window.XCTrack&&XCTrack.getLocation) raw=XCTrack.getLocation(); }
   catch(e){ log("getLocation err: "+e.message); return; }
@@ -939,8 +971,13 @@ function ingest(ftime,baroA,gpsA,lat,lon,spdC){
   var t=(ftime!=null)?ftime:Date.now();
   if(ftime!=null&&lastFixTime!=null){
     var dtms=ftime-lastFixTime;
-    if(dtms===0) return;                               // same fix re-read (5 Hz poll vs ~2 Hz fixes)
-    if(dtms<0||dtms>10000) resetTrack("time jump "+dtms+"ms");   // scrub / rewind / dropout
+    if(dtms===0) return;                 // same fix re-read (5 Hz poll vs ~2 Hz fixes)
+    /* Only time going BACKWARDS forces a reset (replay rewind/scrub-back).
+       Forward gaps need none: old samples age out of the window naturally,
+       and a forward scrub with a position jump trips the impossible-speed
+       gate below.  This keeps GR seamless across page swaps and brief
+       WebView freezes instead of rebuilding for a whole window. */
+    if(dtms<0) resetTrack("time went backwards "+dtms+"ms");
   }
   lastFixTime=ftime;
   // cumulative ground distance from lat/lon only
@@ -1008,6 +1045,7 @@ function grNow(t){
 var lastStatusSec=-1;
 function compute(t){
   if(samples.length<3) return;
+  if(document.hidden) return;   // battery: buffer stays warm, but no DOM/audio work while hidden
   var gr=grNow(t);
   if(!demoActive){ currentGR=gr; updateGRDisplay(); applyLive(); }
   var sec=(t/1000)|0;                        // battery: touch the status DOM 1x/s, not per poll
@@ -1033,7 +1071,7 @@ function updateGRDisplay(){
 }
 setInterval(poll,200);
 edResize();
-log("v0.40: locked method 1, colour-banded GR, log-axis editor, UI overhaul, audio init fix, battery pass.");
+log("v0.41: single-owner audio handoff between widget pages, seamless GR across page swaps, tuned curve defaults.");
 
 // ================= offline caching =================
 if("serviceWorker" in navigator){

@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>Glide Vario v0.42</title>
+<title>Glide Vario v0.43</title>
 <style>
   :root { --bg:#0A0D11; --ink:#F2F5F7; --ok:#2FD97B; --dim:#7C8894; --acc:#4FC3F7; --warn:#FFB74D;
           --bad:#FF5A52; --sky:#4FC3F7; --green:#2FBE6A; --amber:#F09B2E; --mag:#E36BD6;
@@ -59,7 +59,8 @@
   .set label { flex:1.4; color:#C6CFD6; }
   /* big tactile sliders: 44px hit area, soft raised thumb */
   .set input[type=range] { flex:2; -webkit-appearance:none; appearance:none;
-      height:44px; background:transparent; }
+      height:44px; background:transparent;
+      touch-action:pan-y; }   /* vertical gestures scroll the page, not the slider */
   .set input[type=range]::-webkit-slider-runnable-track { height:8px; border-radius:6px;
       background:linear-gradient(180deg,#080C10,#151D26);
       box-shadow:0 1px 2px rgba(0,0,0,.7) inset, 0 1px 0 rgba(255,255,255,.05); }
@@ -128,7 +129,11 @@
   body.mini .row.r1 { margin:0; gap:0; height:100vh; }
   body.mini #grCard { height:100vh; border:none; border-radius:0; padding:0; background:transparent;
     box-shadow:none; display:flex; flex-direction:column; align-items:center; justify-content:center; }
-  body.mini .label { display:none; }
+  /* mini keeps a readable title + averaging label, haloed for map overlay */
+  body.mini .label { display:block; position:fixed; top:max(2px,1vmin); left:50%;
+    transform:translateX(-50%); width:auto; height:auto; overflow:visible;
+    font-size:max(11px,4.5vmin); line-height:1.2; letter-spacing:.12em; color:#333;
+    text-shadow:0 0 .18em #fff, 0 0 .3em #fff, 0 0 .45em #fff; z-index:8; }
   body.mini #gr { font-size:48vmin; height:auto; line-height:1; }
   body.mini #gr, body.mini #gr.good, body.mini #gr.marginal, body.mini #gr.bad { text-shadow:
     -.045em -.045em 0 #fff, .045em -.045em 0 #fff,
@@ -151,13 +156,13 @@
 </head>
 <body>
 
-<div id="status">Waiting for XCTrack data…</div><span id="verTag">v0.42</span>
-<div id="miniVer">v0.42</div>
+<div id="status">Waiting for XCTrack data…</div><span id="verTag">v0.43</span>
+<div id="miniVer">v0.43</div>
 
 <div class="row r1">
   <div class="card" id="grCard">
     <span id="sndDot" title="audio state">●</span>
-    <div class="label">Glide ratio <span id="avgLbl"></span></div>
+    <div class="label">GR Vario <span id="avgLbl"></span></div>
     <div class="big" id="gr">–</div>
   </div>
 </div>
@@ -168,7 +173,7 @@
   <summary>Sound &amp; averaging settings</summary>
 
   <div class="sec">General</div>
-  <div class="set"><label>GR averaging (s)</label><input type="range" id="g_avg" min="6" max="30" step="1"><span class="val" id="g_avgV"></span></div>
+  <div class="set"><label>GR averaging (s)</label><input type="range" id="g_avg" min="4" max="30" step="1"><span class="val" id="g_avgV"></span></div>
   <div class="set"><label>Master volume</label><input type="range" id="g_vol" min="0" max="100" step="5"><span class="val" id="g_volV"></span></div>
 
   <div class="sec">Tone curves — drag dots &amp; the threshold line</div>
@@ -286,11 +291,26 @@ function bindG(id,key){
     save(); $("avgLbl").textContent="("+S.avg+"s avg)";
     if(key==="vol"&&outVol&&ctx) outVol.gain.setTargetAtTime(volGain(S.vol),ctx.currentTime,0.03);
     applyLive(); };
+  /* Scroll guard: a native range input jumps its value the moment a finger
+     lands on it — even when the pilot only meant to scroll the page.  With
+     touch-action:pan-y (CSS), a vertical gesture becomes a page scroll and
+     the browser fires pointercancel on the slider — at which point we undo
+     the accidental jump by restoring the value remembered at touch-down. */
+  var preVal=null;
+  el.addEventListener("pointerdown",function(){ preVal=el.value; });
+  el.addEventListener("pointercancel",function(){
+    if(preVal!==null&&el.value!==preVal){
+      el.value=preVal;
+      el.dispatchEvent(new Event("input"));   // runs the handler above: restores S + saves
+    }
+    preVal=null;
+  });
+  el.addEventListener("pointerup",function(){ preVal=null; });
 }
 // Settings can arrive from an older widget instance via the localStorage sync
 // loop, not just from our own load, so normalization must run on BOTH paths.
 function normalizeSettings(){
-  if(!S.avg||S.avg<6) S.avg=6;
+  if(!S.avg||S.avg<4) S.avg=4;   // 4 s = statistical floor for readable GR at ~2 Hz fixes
   if(S.avg>30) S.avg=30;
 }
 normalizeSettings();
@@ -667,6 +687,12 @@ function effGR(){
 }
 function sideOf(gr){ return gr<S.thr?"bad":"good"; }
 function muted(){
+  /* A hidden page must NEVER create voices.  Without this, leaving the widget
+     page let the beep loop keep manufacturing oscillators into the suspended
+     audio engine (frozen clocks, no owner to block it on a widget-less page);
+     on return, the engine woke up and played the whole backlog on top of the
+     fresh loop — the "two overlapping varios" + clicks after a swipe. */
+  if(!pageVisible()) return true;
   if(ownerBlocked()) return true;      // another widget page owns the speaker
   if(currentGR===null) return true;
   if(demoActive) return false;
@@ -820,6 +846,8 @@ setInterval(function(){
         S=o; lastSettingsJson=sv;
         normalizeSettings();
         refreshGeneralUI(); refreshSdUI(); solidCfgKey="";
+        // apply the synced volume to the LIVE engine, not just the slider UI
+        if(ctx&&outVol) outVol.gain.setTargetAtTime(volGain(S.vol),ctx.currentTime,0.05);
         edDraw(); applyLive();
         log("Settings synced from other widget");
       }
@@ -847,6 +875,9 @@ setInterval(function(){
 function hardMute(on){
   if(!ctx) return;
   if(on){
+    clearTimeout(beepTimer);           // stop the loop: no voice production while muted
+    killActiveBeep();
+    lastEngineState="off";
     if(ctx.state!=="running"){ master.gain.value=0; return; }  // already silent
     fadeMaster(0,0.02,function(){ try{ ctx.suspend(); }catch(e){} });
   } else {
@@ -855,21 +886,30 @@ function hardMute(on){
 }
 // Clean resume: rebuild audio state SILENTLY before anything becomes audible,
 // so a voice frozen at suspension can never burst out stale on page return.
+var resuming=false;
 function resumeCleanly(){
-  if(!ctx) return;
+  if(!ctx||resuming) return;   // single-flight: watchdog + visibility can race
+  resuming=true;
+  /* Silence the master BEFORE waking the engine — the audio thread starts
+     rendering the instant resume() completes, and any voice frozen mid-ring
+     would otherwise burst through at full gain for a few ms (the "clicks"). */
+  master.gain.cancelScheduledValues(ctx.currentTime);
+  master.gain.value=0;
   ctx.resume().then(function(){
     killActiveBeep(); lastPitch=null;
     if(solidVoice){ try{ solidVoice.stop(ctx.currentTime); }catch(e){}
       try{ solidVoice.out.disconnect(); }catch(e){}
       solidVoice=null; solidCfgKey=""; }
     if(solidGain) solidGain.gain.value=0;
+    if(outVol) outVol.gain.value=volGain(S.vol);   // pick up volume changed on the other page
     lastEngineState="off";
     master.gain.value=0;
     clearTimeout(beepTimer);
     applyLive();               // state machine restarts the beep loop exactly once
-    setTimeout(function(){ if(!ownerBlocked()) fadeMaster(1,0.06); },100);
-  });
+    setTimeout(function(){ resuming=false; if(!ownerBlocked()) fadeMaster(1,0.06); },100);
+  },function(){ resuming=false; });
 }
+var staggerTimer=null;
 document.addEventListener("visibilitychange",function(){
   log("Visibility: "+document.visibilityState);
   if(!ctx) return;
@@ -877,10 +917,12 @@ document.addEventListener("visibilitychange",function(){
     if(soundOn){
       claimAudio();      // take ownership: the other page mutes within one heartbeat
       wasBlocked=false;
-      setTimeout(function(){ if(pageVisible()&&soundOn&&!ownerBlocked()) resumeCleanly(); },450);
+      clearTimeout(staggerTimer);   // a bounced swipe must not queue several resumes
+      staggerTimer=setTimeout(function(){ if(pageVisible()&&soundOn&&!ownerBlocked()) resumeCleanly(); },450);
       log("Visible → audio ownership claimed, staggered resume");
     }
   } else {
+    clearTimeout(staggerTimer);
     hardMute(true);
     releaseAudio();      // free the token so the other page can sound instantly
     log("Hidden → audio hard-muted, ownership released");
@@ -1069,9 +1111,13 @@ function updateGRDisplay(){
   el.textContent=txt;
   el.className="big "+cls;
 }
-setInterval(poll,200);
+/* Poll at 10 Hz: XCTrack delivers ~2 fixes/s, but a 100 ms poll halves the
+   worst-case capture latency per fix (was 200 ms).  Duplicates are discarded
+   by the fix-clock dedupe, and all window math uses XCTrack's own fix
+   timestamps, so faster polling adds freshness without adding noise. */
+setInterval(poll,100);
 edResize();
-log("v0.42: version badge on main widget, climb-mute now built-in (removed the settings toggle).");
+log("v0.43: hidden pages can no longer stack frozen voices (overlap/clicks fix), 4s min averaging, 10Hz capture, slider scroll guard, mini label, live volume sync.");
 
 // ================= offline caching =================
 if("serviceWorker" in navigator){

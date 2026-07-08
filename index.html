@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>Glide Vario v0.41</title>
+<title>Glide Vario v0.42</title>
 <style>
   :root { --bg:#0A0D11; --ink:#F2F5F7; --ok:#2FD97B; --dim:#7C8894; --acc:#4FC3F7; --warn:#FFB74D;
           --bad:#FF5A52; --sky:#4FC3F7; --green:#2FBE6A; --amber:#F09B2E; --mag:#E36BD6;
@@ -40,6 +40,9 @@
   #status { display:inline-block; font-size:11.5px; color:var(--dim); margin-bottom:10px;
             padding:5px 12px; border-radius:999px; background:rgba(255,255,255,.045);
             border:1px solid var(--line); }
+  #verTag { display:inline-block; font-size:11px; color:var(--dim); margin:0 0 10px 6px;
+            font-family:ui-monospace,Menlo,monospace; opacity:.7; }
+  body.mini #verTag { display:none; }
   #hint { font-size:11.5px; color:var(--dim); text-align:center; margin:2px 0 10px; }
   /* ---- settings panels ---- */
   details { padding:14px 16px; margin-bottom:12px; }
@@ -148,8 +151,8 @@
 </head>
 <body>
 
-<div id="status">Waiting for XCTrack data…</div>
-<div id="miniVer">v0.41</div>
+<div id="status">Waiting for XCTrack data…</div><span id="verTag">v0.42</span>
+<div id="miniVer">v0.42</div>
 
 <div class="row r1">
   <div class="card" id="grCard">
@@ -167,7 +170,6 @@
   <div class="sec">General</div>
   <div class="set"><label>GR averaging (s)</label><input type="range" id="g_avg" min="6" max="30" step="1"><span class="val" id="g_avgV"></span></div>
   <div class="set"><label>Master volume</label><input type="range" id="g_vol" min="0" max="100" step="5"><span class="val" id="g_volV"></span></div>
-  <div class="set"><label>Mute when climbing (GR shows —)</label><input type="checkbox" id="g_mute"><span class="val"></span></div>
 
   <div class="sec">Tone curves — drag dots &amp; the threshold line</div>
   <div id="edWrap">
@@ -229,7 +231,7 @@ var GR_MIN=4, GR_MAX=20, EPS=0.01;
 function defaults(){
   var thr=9;
   return {
-    avg:12, thr:thr, vol:40, muteInf:true,
+    avg:12, thr:thr, vol:40,
     curves:{   // factory defaults = Luke's flight-tuned curves (v0.40 screenshot)
       pitch:[{gr:4,v:175},{gr:5.5,v:275},{gr:thr-EPS,v:375},{gr:thr+EPS,v:475},{gr:16,v:575},{gr:20,v:625}],
       rate: [{gr:4,v:1.25},{gr:5.5,v:1.25},{gr:thr-EPS,v:1.25},{gr:thr+EPS,v:1},{gr:16,v:1},{gr:20,v:1}],
@@ -257,7 +259,6 @@ try{
     if(old){ var oo=JSON.parse(old);
       if(oo.avg) S.avg=oo.avg;
       if(oo.vol!==undefined) S.vol=oo.vol;
-      if(oo.muteInf!==undefined) S.muteInf=oo.muteInf;
       if(oo.thr){ setThrValue(oo.thr); }
       log("Migrated general settings; sound reset to new curve defaults");
     }
@@ -293,12 +294,11 @@ function normalizeSettings(){
   if(S.avg>30) S.avg=30;
 }
 normalizeSettings();
-bindG("g_avg","avg"); bindG("g_vol","vol"); bindG("g_mute","muteInf");
+bindG("g_avg","avg"); bindG("g_vol","vol");
 $("avgLbl").textContent="("+S.avg+"s avg)";
 function refreshGeneralUI(){
   $("g_avg").value=S.avg; $("g_avgV").textContent=S.avg;
   $("g_vol").value=S.vol; $("g_volV").textContent=S.vol;
-  $("g_mute").checked=S.muteInf;
   $("avgLbl").textContent="("+S.avg+"s avg)";
 }
 
@@ -670,7 +670,7 @@ function muted(){
   if(ownerBlocked()) return true;      // another widget page owns the speaker
   if(currentGR===null) return true;
   if(demoActive) return false;
-  return S.muteInf&&!isFinite(currentGR);
+  return !isFinite(currentGR);         // climbing / no net sink: always silent, not a setting
 }
 
 /* ---- single-owner audio arbitration between the main and mini widgets ----
@@ -1071,7 +1071,7 @@ function updateGRDisplay(){
 }
 setInterval(poll,200);
 edResize();
-log("v0.41: single-owner audio handoff between widget pages, seamless GR across page swaps, tuned curve defaults.");
+log("v0.42: version badge on main widget, climb-mute now built-in (removed the settings toggle).");
 
 // ================= offline caching =================
 if("serviceWorker" in navigator){

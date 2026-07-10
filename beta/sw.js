@@ -2,7 +2,8 @@
 // Strategy: on first successful load, cache this page. From then on,
 // try the network first (to pick up updates), but if that fails
 // (no signal in flight) fall back to the cached copy instantly.
-var CACHE = "glide-vario-cache-v43";
+var PREFIX = "glide-vario-beta-";
+var CACHE = PREFIX + "v50b";
 var ASSETS = [
   "./",
   "./index.html"
@@ -20,7 +21,7 @@ self.addEventListener("activate", function (e) {
   e.waitUntil(
     caches.keys().then(function (keys) {
       return Promise.all(
-        keys.filter(function (k) { return k.indexOf("glide-vario-cache-") === 0 && k !== CACHE; })
+        keys.filter(function (k) { return k.indexOf(PREFIX) === 0 && k !== CACHE; })
             .map(function (k) { return caches.delete(k); })
       );
     }).then(function () { return self.clients.claim(); })

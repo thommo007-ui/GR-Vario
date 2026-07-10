@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>GR Vario v0.52b (beta)</title>
+<title>GR Vario v0.53b (beta)</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;600;700&display=swap" rel="stylesheet">
@@ -51,12 +51,14 @@
   #sndChip.on{color:var(--good)}
   #sndChip.on .chipDot{background:var(--good);box-shadow:0 0 6px rgba(31,157,91,.5)}
   #avgLbl{font-size:11px;color:var(--dim)}
-  .grRow{display:flex;align-items:center;gap:16px;margin-top:6px}
+  .grRow{display:flex;align-items:center;gap:8px;margin-top:6px}
   .big{font-weight:700;line-height:1;font-variant-numeric:tabular-nums;letter-spacing:-.04em;
     white-space:nowrap}
   /* fixed-width number box: "9.6" and "10.2" occupy the same space, so the
-     graph beside it never gets pushed around by digit-count changes */
-  #gr{font-size:clamp(72px,26vw,104px);min-width:3.5ch;text-align:left}
+     graph beside it never gets pushed around by digit-count changes.
+     Centred, so 3-digit values split the spare space instead of leaving it
+     all as a gap between the number and the graph. */
+  #gr{font-size:clamp(72px,26vw,104px);min-width:3.5ch;text-align:center}
   #gr.good{color:var(--good)} #gr.marginal{color:var(--amberD)} #gr.bad{color:#D92B20}
   .grSide{flex:1;min-width:0;display:flex;flex-direction:column;gap:6px;visibility:hidden}
   .grSide.show{visibility:visible}
@@ -196,8 +198,8 @@
     transform:translateX(-50%);font-size:max(11px,4.5vmin);font-weight:600;letter-spacing:.12em;
     color:var(--hink);white-space:nowrap;text-shadow:var(--haloS);z-index:8;text-transform:uppercase}
   body.mini #sndDot{display:block;position:fixed;top:max(5px,1.5vmin);right:max(7px,2vmin);
-    width:max(14px,5vmin);height:max(14px,5vmin);border-radius:50%;background:#999;
-    box-shadow:0 0 0 3px #fff;z-index:9}
+    width:max(7px,2.5vmin);height:max(7px,2.5vmin);border-radius:50%;background:#999;
+    box-shadow:0 0 0 2px #fff;z-index:9}
   body.mini #sndDot.on{background:var(--good)}
   body.mini #gr{font-size:48vmin;text-shadow:var(--haloB);color:var(--hink);
     min-width:0;text-align:center}   /* mini centres its lone number */
@@ -212,7 +214,7 @@
   body.medium #hdr,body.medium #hint,body.medium #setCard,body.medium #support{display:none}
   body.medium .row.r1{margin:0}
   body.medium #grCard,body.medium #grCard.on{background:transparent;border:none;box-shadow:none;
-    border-radius:0;padding:18px 20px;margin:0}
+    border-radius:0;padding:3.5vmin 4.5vmin;margin:0}
   body.medium .mainTitle{display:none}
   body.medium .logoTitle{display:inline;text-shadow:var(--haloS)}
   body.medium .cardLabel{color:var(--hink)}
@@ -226,10 +228,30 @@
   body.medium #trendPoly{stroke:#fff;stroke-width:1.5}
   body.medium #sparkW{display:block}
   body.medium .sparkLbl{color:var(--hink);font-weight:600;text-shadow:var(--haloS)}
-  body.medium .zoneWrap{margin-top:16px}
-  body.medium .zoneFrame{background:#FFF;padding:2px}
+  body.medium .zoneFrame{background:#FFF;padding:max(1px,.6vmin)}
   body.medium .zoneLbls{color:var(--hink);font-weight:600;text-shadow:var(--haloS)}
   body.medium #zoneThrLbl{color:var(--amberD)}
+  /* medium SCALES with the widget: every dimension in viewport units, so
+     resizing the XCTrack widget zooms the whole card, and the GR number is
+     deliberately smaller so the graph and zone bar read on an instrument
+     screen. */
+  body.medium .grRow{gap:3vmin;margin-top:1.5vmin}
+  body.medium .cardLabel{font-size:max(8px,4vmin);letter-spacing:.1em}
+  body.medium .grHeadR{gap:2.5vmin}
+  body.medium #sndChip{font-size:max(7px,3.4vmin)}
+  body.medium #sndChip .chipDot{width:max(5px,2.4vmin);height:max(5px,2.4vmin)}
+  body.medium #avgLbl{font-size:max(7px,3.4vmin)}
+  body.medium #gr{font-size:26vmin}
+  body.medium .grSide{gap:1.6vmin}
+  body.medium .trend{font-size:max(8px,4.6vmin)}
+  body.medium .trend svg{width:max(7px,3.8vmin);height:auto}
+  body.medium #spark{height:10vmin}
+  body.medium .sparkLbl{font-size:max(6px,2.8vmin)}
+  body.medium .zoneWrap{margin-top:4vmin}
+  body.medium .zoneBar{height:4.6vmin;gap:max(1px,.9vmin)}
+  body.medium #zoneThrTick{height:4vmin;top:.3vmin;width:max(1px,.6vmin)}
+  body.medium #zoneNow{width:max(2px,1.2vmin);height:8vmin;top:-1.7vmin}
+  body.medium .zoneLbls{font-size:max(6px,3vmin);margin-top:2.2vmin}
 </style>
 </head>
 <body>
@@ -238,10 +260,10 @@
   <div class="logo"><b class="lg">G</b><b class="lr">R</b> VARIO</div>
   <div class="hdrR">
     <div id="status"><span id="statusDot"></span><span id="statusTxt">Waiting · XCTrack</span></div>
-    <span id="verTag">v0.52b</span>
+    <span id="verTag">v0.53b</span>
   </div>
 </div>
-<div id="miniVer">v0.52b</div>
+<div id="miniVer">v0.53b</div>
 
 <div class="row r1">
   <div class="card" id="grCard">
@@ -1355,7 +1377,7 @@ function updateGRDisplay(){
    timestamps, so faster polling adds freshness without adding noise. */
 setInterval(poll,100);
 edResize();
-log("v0.52: fixed-width GR number (no layout shove), sparkline fixed log y-axis GR 4-20 at full height.");
+log("v0.53: mini dot halved, medium fully viewport-scaled with smaller GR number, graph tucked closer to the number.");
 
 // ================= offline caching =================
 if("serviceWorker" in navigator){

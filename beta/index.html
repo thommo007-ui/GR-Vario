@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>GR Vario v0.50b (beta)</title>
+<title>GR Vario v0.51b (beta)</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;600;700&display=swap" rel="stylesheet">
@@ -60,8 +60,14 @@
   .grSide.show{visibility:visible}
   .trend{display:flex;align-items:center;gap:5px;font-size:16px;font-weight:700;color:var(--good)}
   .trend.down{color:#D92B20}
-  #spark{width:100%;max-width:140px;height:32px;display:block}
+  #spark{width:100%;height:32px;display:block}
   #sparkW{display:none}
+  /* the line is "printed" in the zone colour it had when recorded */
+  .sparkSeg{fill:none;stroke-width:2.5;stroke-linecap:round;stroke-linejoin:round}
+  .sparkSeg.good{stroke:#1F9D5B}
+  .sparkSeg.marginal{stroke:#C07A17}
+  .sparkSeg.bad{stroke:#D92B20}
+  body.medium .sparkSeg.marginal,body.mini .sparkSeg.marginal{stroke:#EF8A00}
   .sparkLbl{font-size:10px;color:var(--dim);font-family:var(--mono)}
   /* ============ zone bar ============ */
   .zoneWrap{margin-top:18px}
@@ -229,10 +235,10 @@
   <div class="logo"><b class="lg">G</b><b class="lr">R</b> VARIO</div>
   <div class="hdrR">
     <div id="status"><span id="statusDot"></span><span id="statusTxt">Waiting · XCTrack</span></div>
-    <span id="verTag">v0.50b</span>
+    <span id="verTag">v0.51b</span>
   </div>
 </div>
-<div id="miniVer">v0.50b</div>
+<div id="miniVer">v0.51b</div>
 
 <div class="row r1">
   <div class="card" id="grCard">
@@ -249,8 +255,8 @@
       <div class="big" id="gr">–</div>
       <div class="grSide" id="grSide">
         <div class="trend" id="trend"><svg width="13" height="11" viewBox="0 0 12 10"><polygon id="trendPoly" points="6,0 12,10 0,10" fill="#1F9D5B"></polygon></svg><span id="trendVal">–</span></div>
-        <svg id="spark" viewBox="0 0 140 32" preserveAspectRatio="none"><polyline id="sparkW" fill="none" stroke="#FFFFFF" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" points=""></polyline><polyline id="sparkG" fill="none" stroke="#1F9D5B" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" points=""></polyline></svg>
-        <div class="sparkLbl">LAST 10S</div>
+        <svg id="spark" viewBox="0 0 420 32" preserveAspectRatio="none"><polyline id="sparkW" fill="none" stroke="#FFFFFF" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" points=""></polyline><g id="sparkSegs"></g></svg>
+        <div class="sparkLbl">LAST 30S</div>
       </div>
     </div>
     <div class="zoneWrap">
@@ -271,7 +277,7 @@
   <div class="set"><label for="g_vol">Volume</label><input type="range" id="g_vol" min="0" max="100" step="5"><span class="val" id="g_volV"></span></div>
 
   <div class="accSec">
-    <div class="accHead" id="curvesHead">Tone curves <span class="chev">▾</span></div>
+    <div class="accHead" id="curvesHead">Sound designer <span class="chev">▾</span></div>
     <div class="accBody" id="curvesBody">
       <div id="edWrap">
         <canvas id="cv"></canvas>
@@ -396,6 +402,14 @@ function updateZoneThr(){
   var p=zonePos(S.thr)+"%";
   lbl.style.left=p; lbl.textContent="THR "+fmtThr(S.thr);
   $("zoneThrTick").style.left=p;
+  /* The amber band IS the marginal band: THR ± 0.5, the exact range where the
+     GR number reads orange — so the now-marker always sits in the colour the
+     number is showing.  Widths follow the log scale, so the amber band gets
+     visually narrower as the threshold moves toward the high end. */
+  var lo=Math.max(GR_MIN,S.thr-0.5), hi=Math.min(GR_MAX,S.thr+0.5);
+  document.querySelector(".zoneBar .zr").style.flex=Math.log(lo/GR_MIN)+" 1 0%";
+  document.querySelector(".zoneBar .za").style.flex=Math.log(hi/lo)+" 1 0%";
+  document.querySelector(".zoneBar .zg").style.flex=Math.log(GR_MAX/hi)+" 1 0%";
 }
 function updateAvgUI(){
   $("avgLbl").textContent=S.avg+"s avg";
@@ -1251,27 +1265,44 @@ function compute(t){
   var sec=(t/1000)|0;                        // battery: zone marker updates 1x/s
   if(sec!==lastStatusSec){ lastStatusSec=sec; uiTick(t); }
 }
-/* ---- GR-over-time sparkline: a 10 s window.  A value appears at the right
-   edge and slides off the left exactly 10 s later.  Updated every fix
-   (~2 Hz) so the scroll is smooth; trend arrow = change across the window. ---- */
-var SPARK_MS=10000;
+/* ---- GR-over-time sparkline: a 30 s window at the same scroll speed as
+   before (3x the length, stretched to the card's right edge).  A value
+   appears at the right edge and slides off the left exactly 30 s later.
+   Each point is "printed" in the zone colour the GR number showed at that
+   moment (good/marginal/bad vs the threshold AT RECORDING TIME) and keeps
+   that colour as it scrolls off — drawn as one polyline per colour run. ---- */
+var SPARK_MS=30000, SPARK_W=420;
 var grHist=[];
+function zoneOf(gr){ return gr>S.thr+0.5?"good":(gr<S.thr-0.5?"bad":"marginal"); }
 function sparkTick(t){
-  if(currentGR!==null&&isFinite(currentGR)) grHist.push({t:t,gr:currentGR});
+  if(currentGR!==null&&isFinite(currentGR))
+    grHist.push({t:t,gr:currentGR,z:zoneOf(currentGR)});
   var t0=t-SPARK_MS;
   while(grHist.length&&grHist[0].t<t0) grHist.shift();
   var side=$("grSide");
-  if(grHist.length>=5&&grHist[grHist.length-1].t-grHist[0].t>=SPARK_MS/2){
+  if(grHist.length>=5&&grHist[grHist.length-1].t-grHist[0].t>=2500){
     side.classList.add("show");
     var mn=Infinity,mx=-Infinity,i,g;
     for(i=0;i<grHist.length;i++){ g=grHist[i].gr; if(g<mn)mn=g; if(g>mx)mx=g; }
-    var span=Math.max(mx-mn,0.5), pts="";
+    var span=Math.max(mx-mn,0.5), all="", segs=[], cur=null;
     for(i=0;i<grHist.length;i++){
-      pts+=(i?" ":"")+((grHist[i].t-t0)/SPARK_MS*140).toFixed(1)+","
-          +(28-(grHist[i].gr-mn)/span*24).toFixed(1);
+      var P=((grHist[i].t-t0)/SPARK_MS*SPARK_W).toFixed(1)+","
+           +(28-(grHist[i].gr-mn)/span*24).toFixed(1);
+      all+=(i?" ":"")+P;
+      if(!cur||grHist[i].z!==cur.z){
+        var nc={z:grHist[i].z,pts:cur&&cur.pts.length?
+                [cur.pts[cur.pts.length-1]]:[]};   // share the boundary point
+        cur=nc; segs.push(cur);
+      }
+      cur.pts.push(P);
     }
-    $("sparkG").setAttribute("points",pts);
-    $("sparkW").setAttribute("points",pts);   // white underlay (medium mode only)
+    var svg="";
+    for(i=0;i<segs.length;i++){
+      if(segs[i].pts.length<2) continue;
+      svg+='<polyline class="sparkSeg '+segs[i].z+'" points="'+segs[i].pts.join(" ")+'"></polyline>';
+    }
+    $("sparkSegs").innerHTML=svg;
+    $("sparkW").setAttribute("points",all);   // white underlay (medium mode only)
     var d=grHist[grHist.length-1].gr-grHist[0].gr, up=d>=0;
     $("trendVal").textContent=Math.abs(d).toFixed(1);
     $("trend").classList.toggle("down",!up);
@@ -1319,7 +1350,7 @@ function updateGRDisplay(){
    timestamps, so faster polling adds freshness without adding noise. */
 setInterval(poll,100);
 edResize();
-log("v0.50: Daylight redesign — light sunlight-first theme, zone bar + trend sparkline, medium widget mode (?medium=1), accordion settings. Engine unchanged from v0.43.");
+log("v0.51: 30s zone-coloured sparkline, live threshold-tracking zone bar, 'Sound designer' rename. Engine unchanged from v0.43.");
 
 // ================= offline caching =================
 if("serviceWorker" in navigator){

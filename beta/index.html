@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>GR Vario v0.51b (beta)</title>
+<title>GR Vario v0.52b (beta)</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;600;700&display=swap" rel="stylesheet">
@@ -54,7 +54,9 @@
   .grRow{display:flex;align-items:center;gap:16px;margin-top:6px}
   .big{font-weight:700;line-height:1;font-variant-numeric:tabular-nums;letter-spacing:-.04em;
     white-space:nowrap}
-  #gr{font-size:clamp(72px,26vw,104px)}
+  /* fixed-width number box: "9.6" and "10.2" occupy the same space, so the
+     graph beside it never gets pushed around by digit-count changes */
+  #gr{font-size:clamp(72px,26vw,104px);min-width:3.5ch;text-align:left}
   #gr.good{color:var(--good)} #gr.marginal{color:var(--amberD)} #gr.bad{color:#D92B20}
   .grSide{flex:1;min-width:0;display:flex;flex-direction:column;gap:6px;visibility:hidden}
   .grSide.show{visibility:visible}
@@ -197,7 +199,8 @@
     width:max(14px,5vmin);height:max(14px,5vmin);border-radius:50%;background:#999;
     box-shadow:0 0 0 3px #fff;z-index:9}
   body.mini #sndDot.on{background:var(--good)}
-  body.mini #gr{font-size:48vmin;text-shadow:var(--haloB);color:var(--hink)}
+  body.mini #gr{font-size:48vmin;text-shadow:var(--haloB);color:var(--hink);
+    min-width:0;text-align:center}   /* mini centres its lone number */
   body.mini #gr.good{color:var(--good)}
   body.mini #gr.marginal{color:#EF8A00}
   body.mini #gr.bad{color:#D92B20}
@@ -235,10 +238,10 @@
   <div class="logo"><b class="lg">G</b><b class="lr">R</b> VARIO</div>
   <div class="hdrR">
     <div id="status"><span id="statusDot"></span><span id="statusTxt">Waiting · XCTrack</span></div>
-    <span id="verTag">v0.51b</span>
+    <span id="verTag">v0.52b</span>
   </div>
 </div>
-<div id="miniVer">v0.51b</div>
+<div id="miniVer">v0.52b</div>
 
 <div class="row r1">
   <div class="card" id="grCard">
@@ -1282,12 +1285,14 @@ function sparkTick(t){
   var side=$("grSide");
   if(grHist.length>=5&&grHist[grHist.length-1].t-grHist[0].t>=2500){
     side.classList.add("show");
-    var mn=Infinity,mx=-Infinity,i,g;
-    for(i=0;i<grHist.length;i++){ g=grHist[i].gr; if(g<mn)mn=g; if(g>mx)mx=g; }
-    var span=Math.max(mx-mn,0.5), all="", segs=[], cur=null;
+    /* FIXED y-axis: the full GR 4..20 range on the same log scale as the zone
+       bar and curve editor, using nearly the whole 32px height (y 2..30).
+       The line no longer rescales as values enter/leave the window — a given
+       GR always draws at the same height. */
+    var i, all="", segs=[], cur=null;
     for(i=0;i<grHist.length;i++){
       var P=((grHist[i].t-t0)/SPARK_MS*SPARK_W).toFixed(1)+","
-           +(28-(grHist[i].gr-mn)/span*24).toFixed(1);
+           +(30-zonePos(grHist[i].gr)*0.28).toFixed(1);
       all+=(i?" ":"")+P;
       if(!cur||grHist[i].z!==cur.z){
         var nc={z:grHist[i].z,pts:cur&&cur.pts.length?
@@ -1350,7 +1355,7 @@ function updateGRDisplay(){
    timestamps, so faster polling adds freshness without adding noise. */
 setInterval(poll,100);
 edResize();
-log("v0.51: 30s zone-coloured sparkline, live threshold-tracking zone bar, 'Sound designer' rename. Engine unchanged from v0.43.");
+log("v0.52: fixed-width GR number (no layout shove), sparkline fixed log y-axis GR 4-20 at full height.");
 
 // ================= offline caching =================
 if("serviceWorker" in navigator){

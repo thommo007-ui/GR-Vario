@@ -3,7 +3,7 @@
 // try the network first (to pick up updates), but if that fails
 // (no signal in flight) fall back to the cached copy instantly.
 var PREFIX = "glide-vario-beta-";
-var CACHE = PREFIX + "v51b";
+var CACHE = PREFIX + "v52b";
 var ASSETS = [
   "./",
   "./index.html"

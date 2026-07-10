@@ -250,7 +250,7 @@
       <div class="grSide" id="grSide">
         <div class="trend" id="trend"><svg width="13" height="11" viewBox="0 0 12 10"><polygon id="trendPoly" points="6,0 12,10 0,10" fill="#1F9D5B"></polygon></svg><span id="trendVal">–</span></div>
         <svg id="spark" viewBox="0 0 140 32" preserveAspectRatio="none"><polyline id="sparkW" fill="none" stroke="#FFFFFF" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" points=""></polyline><polyline id="sparkG" fill="none" stroke="#1F9D5B" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" points=""></polyline></svg>
-        <div class="sparkLbl">LAST 60S</div>
+        <div class="sparkLbl">LAST 10S</div>
       </div>
     </div>
     <div class="zoneWrap">
@@ -1247,27 +1247,27 @@ function compute(t){
   if(document.hidden) return;   // battery: buffer stays warm, but no DOM/audio work while hidden
   var gr=grNow(t);
   if(!demoActive){ currentGR=gr; updateGRDisplay(); applyLive(); }
-  var sec=(t/1000)|0;                        // battery: secondary UI updates 1x/s, not per fix
+  sparkTick(t);                              // per fix: sparkline scrolls smoothly
+  var sec=(t/1000)|0;                        // battery: zone marker updates 1x/s
   if(sec!==lastStatusSec){ lastStatusSec=sec; uiTick(t); }
 }
-/* ---- 1 Hz UI: zone-bar marker, 60 s sparkline, trend arrow ---- */
+/* ---- GR-over-time sparkline: a 10 s window.  A value appears at the right
+   edge and slides off the left exactly 10 s later.  Updated every fix
+   (~2 Hz) so the scroll is smooth; trend arrow = change across the window. ---- */
+var SPARK_MS=10000;
 var grHist=[];
-function uiTick(t){
+function sparkTick(t){
   if(currentGR!==null&&isFinite(currentGR)) grHist.push({t:t,gr:currentGR});
-  var t0=t-60000;
+  var t0=t-SPARK_MS;
   while(grHist.length&&grHist[0].t<t0) grHist.shift();
-  var zn=$("zoneNow");
-  if(currentGR!==null&&isFinite(currentGR)){
-    zn.style.display="block"; zn.style.left=zonePos(currentGR)+"%";
-  } else zn.style.display="none";
   var side=$("grSide");
-  if(grHist.length>=5&&grHist[grHist.length-1].t-grHist[0].t>=15000){
+  if(grHist.length>=5&&grHist[grHist.length-1].t-grHist[0].t>=SPARK_MS/2){
     side.classList.add("show");
     var mn=Infinity,mx=-Infinity,i,g;
     for(i=0;i<grHist.length;i++){ g=grHist[i].gr; if(g<mn)mn=g; if(g>mx)mx=g; }
     var span=Math.max(mx-mn,0.5), pts="";
     for(i=0;i<grHist.length;i++){
-      pts+=(i?" ":"")+((grHist[i].t-t0)/60000*140).toFixed(1)+","
+      pts+=(i?" ":"")+((grHist[i].t-t0)/SPARK_MS*140).toFixed(1)+","
           +(28-(grHist[i].gr-mn)/span*24).toFixed(1);
     }
     $("sparkG").setAttribute("points",pts);
@@ -1278,6 +1278,13 @@ function uiTick(t){
     $("trendPoly").setAttribute("points",up?"6,0 12,10 0,10":"6,10 0,0 12,0");
     $("trendPoly").setAttribute("fill",up?"#1F9D5B":"#D92B20");
   } else side.classList.remove("show");
+}
+/* ---- 1 Hz UI: zone-bar marker ---- */
+function uiTick(t){
+  var zn=$("zoneNow");
+  if(currentGR!==null&&isFinite(currentGR)){
+    zn.style.display="block"; zn.style.left=zonePos(currentGR)+"%";
+  } else zn.style.display="none";
 }
 /* ---- Connected/Waiting pill (wall clock: works when fixes STOP too) ---- */
 var lastFixWall=0, statusConn=null;

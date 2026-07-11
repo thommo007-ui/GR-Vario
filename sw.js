@@ -2,7 +2,7 @@
 // Strategy: on first successful load, cache this page. From then on,
 // try the network first (to pick up updates), but if that fails
 // (no signal in flight) fall back to the cached copy instantly.
-var CACHE = "glide-vario-cache-v55";
+var CACHE = "glide-vario-cache-v56";
 var ASSETS = [
   "./",
   "./index.html"

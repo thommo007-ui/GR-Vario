@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>GR Vario v0.55</title>
+<title>GR Vario v0.56</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;600;700&display=swap" rel="stylesheet">
@@ -67,7 +67,10 @@
   #spark{width:100%;height:52px;display:block}
   #sparkW{display:none}
   /* the line is "printed" in the zone colour it had when recorded */
-  .sparkSeg{fill:none;stroke-width:2.5;stroke-linecap:round;stroke-linejoin:round}
+  /* uniform non-scaling stroke (like the medium widget) so the line reads
+     crisp and a bit bolder instead of thinned-out by the stretched viewBox */
+  .sparkSeg{fill:none;stroke-width:2.2px;vector-effect:non-scaling-stroke;
+    stroke-linecap:round;stroke-linejoin:round}
   .sparkSeg.good{stroke:#1F9D5B}
   .sparkSeg.marginal{stroke:#C07A17}
   .sparkSeg.bad{stroke:#D92B20}
@@ -238,10 +241,19 @@
      the bottom, so shrinking the widget never leaves dead space below the
      colour bar — any spare height is absorbed between the rows instead */
   body.medium .row.r1{margin:0;height:100vh}
+  /* Fill the widget box at ANY size with minimal gaps: header pinned top,
+     zone bar pinned bottom, and the GR row (with its graph) FLEXES to eat all
+     the space between them — so there's no fixed height to leave a gap or dead
+     space, whatever the window shape. */
   body.medium #grCard,body.medium #grCard.on{background:transparent;border:none;box-shadow:none;
-    border-radius:0;padding:3.5vmin 4.5vmin;margin:0;height:100vh;
-    display:flex;flex-direction:column;justify-content:space-between}
-  body.medium .grRow{flex:1;min-height:0}
+    border-radius:0;padding:2.2vmin 4vmin;margin:0;height:100vh;
+    display:flex;flex-direction:column;justify-content:flex-start}
+  body.medium .grHead{flex:none}
+  body.medium .grRow{flex:1 1 auto;min-height:0;align-items:stretch}
+  body.medium #gr{align-self:center}
+  body.medium .grSide{flex:1;min-width:0;justify-content:center}
+  body.medium #spark{flex:1;height:auto;min-height:0}
+  body.medium .zoneWrap{flex:none}
   body.medium .mainTitle{display:none}
   body.medium .logoTitle{display:inline;text-shadow:var(--haloS)}
   body.medium .cardLabel{color:var(--hink)}
@@ -262,19 +274,18 @@
      resizing the XCTrack widget zooms the whole card, and the GR number is
      deliberately smaller so the graph and zone bar read on an instrument
      screen. */
-  body.medium .grRow{gap:3vmin;margin-top:1.5vmin}
+  body.medium .grRow{gap:3vmin;margin-top:.6vmin}
   body.medium .cardLabel{font-size:max(8px,4vmin);letter-spacing:.1em}
   body.medium .grHeadR{gap:2.5vmin}
   body.medium #sndChip{font-size:max(7px,3.4vmin)}
   body.medium #sndChip .chipDot{width:max(5px,2.4vmin);height:max(5px,2.4vmin)}
   body.medium #avgLbl{font-size:max(7px,3.4vmin)}
-  body.medium #gr{font-size:26vmin}
-  body.medium .grSide{gap:1.6vmin}
+  body.medium #gr{font-size:min(30vw,44vh)}   /* fills, capped so it never overflows width */
+  body.medium .grSide{gap:1.2vmin}
   body.medium .trend{font-size:max(8px,4.6vmin)}
   body.medium .trend svg{width:max(7px,3.8vmin);height:auto}
-  body.medium #spark{height:16vmin}
   body.medium .sparkLbl{font-size:max(6px,2.8vmin)}
-  body.medium .zoneWrap{margin-top:2vmin}
+  body.medium .zoneWrap{margin-top:.6vmin}
   body.medium .zoneBar{height:4.6vmin;gap:max(1px,.9vmin)}
   body.medium #zoneThrTick{height:4vmin;top:.3vmin;width:max(1px,.6vmin)}
   body.medium #zoneNow{width:max(2px,1.2vmin);height:8vmin;top:-1.7vmin}
@@ -287,10 +298,10 @@
   <div class="logo"><b class="lg">G</b><b class="lr">R</b> VARIO</div>
   <div class="hdrR">
     <div id="status"><span id="statusDot"></span><span id="statusTxt">Waiting · XCTrack</span></div>
-    <span id="verTag">v0.55</span>
+    <span id="verTag">v0.56</span>
   </div>
 </div>
-<div id="miniVer">v0.55</div>
+<div id="miniVer">v0.56</div>
 
 <div class="row r1">
   <div class="card" id="grCard">
@@ -1434,7 +1445,7 @@ function updateGRDisplay(){
    timestamps, so faster polling adds freshness without adding noise. */
 setInterval(poll,100);
 edResize();
-log("v0.55: thicker medium sparkline, boxed Sound-designer header with EQ icon + round chevron, softened PayPal button, slider scroll-guard no longer flickers the value.");
+log("v0.56: medium graph flexes to fill the widget box with minimal gaps at any size; main widget graph line thickened to match.");
 
 // ================= offline caching =================
 if("serviceWorker" in navigator){

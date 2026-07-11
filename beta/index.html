@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>GR Vario v0.54b (beta)</title>
+<title>GR Vario v0.55b (beta)</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;600;700&display=swap" rel="stylesheet">
@@ -72,6 +72,10 @@
   .sparkSeg.marginal{stroke:#C07A17}
   .sparkSeg.bad{stroke:#D92B20}
   body.medium .sparkSeg.marginal,body.mini .sparkSeg.marginal{stroke:#EF8A00}
+  /* medium: line as thick as the GR number's strokes, uniform (non-scaling so
+     the non-square viewBox can't distort it), scaling with the widget */
+  body.medium .sparkSeg{stroke-width:3.4vmin;vector-effect:non-scaling-stroke}
+  body.medium #sparkW{stroke-width:5.4vmin;vector-effect:non-scaling-stroke}
   .sparkLbl{font-size:10px;color:var(--dim);font-family:var(--mono)}
   /* ============ zone bar ============ */
   .zoneWrap{margin-top:18px}
@@ -104,11 +108,26 @@
     font-variant-numeric:tabular-nums}
   /* ============ accordions ============ */
   .accSec{border-top:1px solid rgba(0,0,0,.06);margin-top:8px}
+  .accSec.sndSec{border-top:none;margin-top:4px}   /* boxed header replaces the divider */
   .accHead{display:flex;align-items:center;justify-content:space-between;min-height:48px;
     font-size:14px;font-weight:500;cursor:pointer;-webkit-tap-highlight-color:rgba(42,120,214,.1)}
   .chev{font-size:12px;color:var(--blue);transition:transform .25s ease;display:inline-block}
   .accHead.open .chev,.sdHead.open .chev,#supBtn.open .chev{transform:rotate(180deg)}
   .accBody,.sdBody{overflow:hidden;max-height:0;transition:max-height .25s ease}
+  /* Sound designer: a special, tactile boxed header so it reads as the door to
+     the deep sound-shaping controls, not just another row. */
+  #curvesHead{margin-top:6px;padding:0 12px 0 14px;min-height:58px;border-radius:16px;
+    background:linear-gradient(135deg,#EAF2FD,#EAF7EF);
+    border:1.5px solid rgba(42,120,214,.28);font-weight:700;font-size:16px;color:var(--ink);
+    box-shadow:0 1px 3px rgba(42,120,214,.14),inset 0 1px 0 rgba(255,255,255,.7)}
+  #curvesHead:active{transform:scale(.99)}
+  .sdTitleWrap{display:flex;align-items:center;gap:10px}
+  .sdEq{flex:none}
+  /* the round chevron button — reused by the PayPal control so they match */
+  .chevBtn{width:30px;height:30px;flex:none;border-radius:50%;display:flex;align-items:center;
+    justify-content:center;font-size:15px;line-height:1;color:#fff;background:var(--blue);
+    box-shadow:0 2px 5px rgba(42,120,214,.4);transition:transform .25s ease}
+  #curvesHead.open .chevBtn,#supBtn.open .chevBtn{transform:rotate(180deg)}
   /* ============ curve editor ============ */
   /* side padding = scroll gutters: flicking there scrolls the page, not the graph */
   #edWrap{border:1px solid rgba(0,0,0,.07);border-radius:12px;margin-top:4px;overflow:hidden;
@@ -160,15 +179,18 @@
     background-repeat:no-repeat;background-position:center}
   /* ============ PayPal ============ */
   #support{margin-top:12px}
-  #supBtn{height:56px;display:flex;align-items:center;justify-content:center;gap:10px;
-    padding:0 18px;background:#FFC439;border-radius:999px;box-shadow:0 2px 6px rgba(0,0,0,.12);
-    cursor:pointer;-webkit-tap-highlight-color:rgba(0,48,135,.15);transition:transform .1s}
-  #supBtn:active{transform:scale(.98)}
-  .ppWord{font-size:19px;font-weight:700;font-style:italic;letter-spacing:-.02em;
+  #supBtn{height:50px;display:flex;align-items:center;justify-content:center;gap:9px;
+    padding:0 14px;background:linear-gradient(180deg,#FFF7E3,#FDEDC4);
+    border:1.5px solid rgba(255,196,57,.7);border-radius:16px;
+    box-shadow:0 1px 3px rgba(0,0,0,.06),inset 0 1px 0 rgba(255,255,255,.7);
+    cursor:pointer;-webkit-tap-highlight-color:rgba(0,48,135,.12);transition:transform .1s}
+  #supBtn:active{transform:scale(.99)}
+  .ppWord{font-size:16px;font-weight:700;font-style:italic;letter-spacing:-.02em;
     font-family:Verdana,system-ui,sans-serif}
   .pp1{color:#003087}.pp2{color:#0070BA}
-  .ppTxt{font-size:14.5px;font-weight:600;color:#003087}
-  #supBtn .chev{color:#003087}
+  .ppTxt{font-size:13px;font-weight:600;color:#003087}
+  #supBtn .chevBtn{background:#003087;box-shadow:0 2px 5px rgba(0,48,135,.35);
+    width:26px;height:26px;font-size:13px}
   #supPanel{display:none;background:#FFF;border:1px solid var(--line);border-radius:20px;
     margin-top:10px;padding:16px 18px;box-shadow:0 2px 8px rgba(0,0,0,.05)}
   #supPanel.open{display:block}
@@ -265,10 +287,10 @@
   <div class="logo"><b class="lg">G</b><b class="lr">R</b> VARIO</div>
   <div class="hdrR">
     <div id="status"><span id="statusDot"></span><span id="statusTxt">Waiting · XCTrack</span></div>
-    <span id="verTag">v0.54b</span>
+    <span id="verTag">v0.55b</span>
   </div>
 </div>
-<div id="miniVer">v0.54b</div>
+<div id="miniVer">v0.55b</div>
 
 <div class="row r1">
   <div class="card" id="grCard">
@@ -306,8 +328,13 @@
   <div class="set"><label for="g_avg">Averaging</label><input type="range" id="g_avg" min="4" max="30" step="1"><span class="val"><span id="g_avgV"></span>s</span></div>
   <div class="set"><label for="g_vol">Volume</label><input type="range" id="g_vol" min="0" max="100" step="5"><span class="val" id="g_volV"></span></div>
 
-  <div class="accSec">
-    <div class="accHead" id="curvesHead">Sound designer <span class="chev">▾</span></div>
+  <div class="accSec sndSec">
+    <div class="accHead" id="curvesHead">
+      <span class="sdTitleWrap">
+        <svg class="sdEq" width="20" height="20" viewBox="0 0 20 20" aria-hidden="true"><rect x="1.5" y="7" width="4" height="11.5" rx="2" fill="#2A78D6"/><rect x="8" y="2" width="4" height="16.5" rx="2" fill="#2BB56A"/><rect x="14.5" y="11" width="4" height="7.5" rx="2" fill="#C255AE"/></svg>
+        Sound designer</span>
+      <span class="chevBtn">▾</span>
+    </div>
     <div class="accBody" id="curvesBody">
       <div id="edWrap">
         <canvas id="cv"></canvas>
@@ -341,7 +368,7 @@
 </div>
 
 <div id="support">
-  <div id="supBtn" role="button"><span class="ppWord"><span class="pp1">Pay</span><span class="pp2">Pal</span></span><span class="ppTxt">· Shout Luke a coffee</span><span class="chev">▾</span></div>
+  <div id="supBtn" role="button"><span class="ppWord"><span class="pp1">Pay</span><span class="pp2">Pal</span></span><span class="ppTxt">· Shout Luke a coffee</span><span class="chevBtn">▾</span></div>
   <div id="supPanel">
     <div class="supFlex">
       <img id="supQR" alt="PayPal QR" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAK4AAACuAQAAAACHdwtDAAABTUlEQVR4nO2XsY1cMQxEHy0BG0qAC9hS+DtwScZ2pl/KFWCAP1xAwjjQJcbdhV4GNjNNwgE5Q1ImPon17TMU/g0YBUAJn00lHACfOQRdEm3c3gwokiKlJhUwnOvH6jy/R716+ZXatPYowS1emfIr2MFfnPIjLA2u49mZ10HTTGNymhlwCyosM+tJLn6PMfESvh85Lr6OCtYpGhNWp15Hlk6W2cQ3n8r57GndAd8zdiMlUmYsCmhDUpEmSCNNJ20AlfNpRwmvOFeaToBnp+ix7o/VWT1tF0+8aNDG7k6aTqTZNKGEK5gbSarJtg9NCsBny1KseO8RFVdQ3pIUe5mZVc7KOfe98tdTfgXvm01cP60zM5lgdgAlmJzWWfeRe2iv+4M2FNSXpfwzFL73Dk3gE2bObY/C99JReAmfeOI8AUo428Iaypmx9v83+iF+AwHpzZFyNnHqAAAAAElFTkSuQmCC">
@@ -457,26 +484,40 @@ function bindG(id,key){
     el.onchange=function(){ S[key]=el.checked; save(); applyLive(); }; return; }
   el.value=S[key]; if(v) v.textContent=S[key];
   paintSlider(el);
-  el.oninput=function(){ S[key]=parseFloat(el.value); if(v) v.textContent=el.value;
-    paintSlider(el);
-    save(); updateAvgUI();
+  function commit(){ S[key]=parseFloat(el.value); if(v) v.textContent=el.value;
+    paintSlider(el); save(); updateAvgUI();
     if(key==="vol"&&outVol&&ctx) outVol.gain.setTargetAtTime(volGain(S.vol),ctx.currentTime,0.03);
-    applyLive(); };
-  /* Scroll guard: a native range input jumps its value the moment a finger
-     lands on it — even when the pilot only meant to scroll the page.  With
-     touch-action:pan-y (CSS), a vertical gesture becomes a page scroll and
-     the browser fires pointercancel on the slider — at which point we undo
-     the accidental jump by restoring the value remembered at touch-down. */
-  var preVal=null;
-  el.addEventListener("pointerdown",function(){ preVal=el.value; });
-  el.addEventListener("pointercancel",function(){
-    if(preVal!==null&&el.value!==preVal){
-      el.value=preVal;
-      el.dispatchEvent(new Event("input"));   // runs the handler above: restores S + saves
-    }
-    preVal=null;
+    applyLive(); }
+  /* Scroll guard v2: a native range jumps its value the instant a finger lands,
+     even when the pilot only meant to scroll.  The old guard COMMITTED that
+     jump (audibly, for volume) then restored it on pointercancel — so the
+     value flickered.  Now a TOUCH commits only once it's confirmed a
+     horizontal drag (>=6px, more across than down); until then input events
+     are ignored, so a scroll never changes the value — no commit, no audio
+     blip, no flicker.  Mouse/pen/keyboard commit immediately as before. */
+  var touchActive=false, dragOK=false, preVal=null, dx0=0, dy0=0;
+  el.addEventListener("pointerdown",function(e){
+    if(e.pointerType==="touch"){ touchActive=true; dragOK=false; preVal=el.value;
+      dx0=e.clientX; dy0=e.clientY; }
   });
-  el.addEventListener("pointerup",function(){ preVal=null; });
+  el.addEventListener("pointermove",function(e){
+    if(!touchActive||dragOK) return;
+    if(Math.abs(e.clientX-dx0)>=6 && Math.abs(e.clientX-dx0)>Math.abs(e.clientY-dy0)){
+      dragOK=true; commit();   // horizontal intent confirmed: adopt the drag position
+    }
+  });
+  el.oninput=function(){
+    if(touchActive&&!dragOK) return;   // provisional touch: ignore until it's a real drag
+    commit();
+  };
+  el.addEventListener("pointerup",function(){
+    if(touchActive&&!dragOK){ el.value=preVal; paintSlider(el); }   // tap/scroll start: unchanged
+    touchActive=false;
+  });
+  el.addEventListener("pointercancel",function(){
+    if(touchActive){ el.value=preVal; paintSlider(el); }   // scroll: restore, never committed
+    touchActive=false;
+  });
 }
 // Settings can arrive from an older widget instance via the localStorage sync
 // loop, not just from our own load, so normalization must run on BOTH paths.
@@ -1393,7 +1434,7 @@ function updateGRDisplay(){
    timestamps, so faster polling adds freshness without adding noise. */
 setInterval(poll,100);
 edResize();
-log("v0.54: medium fills its box (zone bar pinned to bottom), 2x sparkline y-resolution, self-healing trace, hidden pages can no longer steal the audio token.");
+log("v0.55: thicker medium sparkline, boxed Sound-designer header with EQ icon + round chevron, softened PayPal button, slider scroll-guard no longer flickers the value.");
 
 // ================= offline caching =================
 if("serviceWorker" in navigator){

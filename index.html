@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>GR Vario v0.56</title>
+<title>GR Vario v0.57</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;600;700&display=swap" rel="stylesheet">
@@ -64,12 +64,11 @@
   .grSide.show{visibility:visible}
   .trend{display:flex;align-items:center;gap:5px;font-size:16px;font-weight:700;color:var(--good)}
   .trend.down{color:#D92B20}
-  #spark{width:100%;height:52px;display:block}
+  #spark{width:100%;height:52px;display:block;overflow:visible}  /* bold line not clipped at extremes */
   #sparkW{display:none}
   /* the line is "printed" in the zone colour it had when recorded */
-  /* uniform non-scaling stroke (like the medium widget) so the line reads
-     crisp and a bit bolder instead of thinned-out by the stretched viewBox */
-  .sparkSeg{fill:none;stroke-width:2.2px;vector-effect:non-scaling-stroke;
+  /* uniform non-scaling stroke; 11.2px = 70% of the 16px zone bar beneath it */
+  .sparkSeg{fill:none;stroke-width:11.2px;vector-effect:non-scaling-stroke;
     stroke-linecap:round;stroke-linejoin:round}
   .sparkSeg.good{stroke:#1F9D5B}
   .sparkSeg.marginal{stroke:#C07A17}
@@ -298,10 +297,10 @@
   <div class="logo"><b class="lg">G</b><b class="lr">R</b> VARIO</div>
   <div class="hdrR">
     <div id="status"><span id="statusDot"></span><span id="statusTxt">Waiting · XCTrack</span></div>
-    <span id="verTag">v0.56</span>
+    <span id="verTag">v0.57</span>
   </div>
 </div>
-<div id="miniVer">v0.56</div>
+<div id="miniVer">v0.57</div>
 
 <div class="row r1">
   <div class="card" id="grCard">
@@ -1445,7 +1444,7 @@ function updateGRDisplay(){
    timestamps, so faster polling adds freshness without adding noise. */
 setInterval(poll,100);
 edResize();
-log("v0.56: medium graph flexes to fill the widget box with minimal gaps at any size; main widget graph line thickened to match.");
+log("v0.57: main widget graph line = 70% of the zone bar thickness (11.2px).");
 
 // ================= offline caching =================
 if("serviceWorker" in navigator){

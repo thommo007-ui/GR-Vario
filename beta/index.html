@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>GR Vario v0.53b (beta)</title>
+<title>GR Vario v0.54b (beta)</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;600;700&display=swap" rel="stylesheet">
@@ -64,7 +64,7 @@
   .grSide.show{visibility:visible}
   .trend{display:flex;align-items:center;gap:5px;font-size:16px;font-weight:700;color:var(--good)}
   .trend.down{color:#D92B20}
-  #spark{width:100%;height:32px;display:block}
+  #spark{width:100%;height:52px;display:block}
   #sparkW{display:none}
   /* the line is "printed" in the zone colour it had when recorded */
   .sparkSeg{fill:none;stroke-width:2.5;stroke-linecap:round;stroke-linejoin:round}
@@ -212,9 +212,14 @@
   /* ============ MEDIUM (?medium=1): GR card only, transparent, haloed ============ */
   html.medium,body.medium{padding:0;background:transparent;overflow:hidden}
   body.medium #hdr,body.medium #hint,body.medium #setCard,body.medium #support{display:none}
-  body.medium .row.r1{margin:0}
+  /* the card FILLS the widget box: flex column with the zone bar pinned to
+     the bottom, so shrinking the widget never leaves dead space below the
+     colour bar — any spare height is absorbed between the rows instead */
+  body.medium .row.r1{margin:0;height:100vh}
   body.medium #grCard,body.medium #grCard.on{background:transparent;border:none;box-shadow:none;
-    border-radius:0;padding:3.5vmin 4.5vmin;margin:0}
+    border-radius:0;padding:3.5vmin 4.5vmin;margin:0;height:100vh;
+    display:flex;flex-direction:column;justify-content:space-between}
+  body.medium .grRow{flex:1;min-height:0}
   body.medium .mainTitle{display:none}
   body.medium .logoTitle{display:inline;text-shadow:var(--haloS)}
   body.medium .cardLabel{color:var(--hink)}
@@ -245,9 +250,9 @@
   body.medium .grSide{gap:1.6vmin}
   body.medium .trend{font-size:max(8px,4.6vmin)}
   body.medium .trend svg{width:max(7px,3.8vmin);height:auto}
-  body.medium #spark{height:10vmin}
+  body.medium #spark{height:16vmin}
   body.medium .sparkLbl{font-size:max(6px,2.8vmin)}
-  body.medium .zoneWrap{margin-top:4vmin}
+  body.medium .zoneWrap{margin-top:2vmin}
   body.medium .zoneBar{height:4.6vmin;gap:max(1px,.9vmin)}
   body.medium #zoneThrTick{height:4vmin;top:.3vmin;width:max(1px,.6vmin)}
   body.medium #zoneNow{width:max(2px,1.2vmin);height:8vmin;top:-1.7vmin}
@@ -260,10 +265,10 @@
   <div class="logo"><b class="lg">G</b><b class="lr">R</b> VARIO</div>
   <div class="hdrR">
     <div id="status"><span id="statusDot"></span><span id="statusTxt">Waiting · XCTrack</span></div>
-    <span id="verTag">v0.53b</span>
+    <span id="verTag">v0.54b</span>
   </div>
 </div>
-<div id="miniVer">v0.53b</div>
+<div id="miniVer">v0.54b</div>
 
 <div class="row r1">
   <div class="card" id="grCard">
@@ -280,7 +285,7 @@
       <div class="big" id="gr">–</div>
       <div class="grSide" id="grSide">
         <div class="trend" id="trend"><svg width="13" height="11" viewBox="0 0 12 10"><polygon id="trendPoly" points="6,0 12,10 0,10" fill="#1F9D5B"></polygon></svg><span id="trendVal">–</span></div>
-        <svg id="spark" viewBox="0 0 420 32" preserveAspectRatio="none"><polyline id="sparkW" fill="none" stroke="#FFFFFF" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" points=""></polyline><g id="sparkSegs"></g></svg>
+        <svg id="spark" viewBox="0 0 420 64" preserveAspectRatio="none"><polyline id="sparkW" fill="none" stroke="#FFFFFF" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" points=""></polyline><g id="sparkSegs"></g></svg>
         <div class="sparkLbl">LAST 30S</div>
       </div>
     </div>
@@ -1005,7 +1010,12 @@ function setSound(on){
   $("hint").style.display=on?"none":"";
   clearTimeout(beepTimer);
   if(on){
-    claimAudio(); wasBlocked=false;   // an explicit tap on THIS page takes ownership
+    /* Only a VISIBLE page may take the ownership token.  Hidden pages also
+       run setSound(true) via the gv_audio sync — if they claimed here, they
+       stole the token from the page the pilot was actually looking at, which
+       muted itself ~1 s after an unmute ("played for 1 sec then stopped"). */
+    if(pageVisible()) claimAudio();
+    wasBlocked=false;
     /* The state machine in applyLive() is the ONLY thing allowed to start the
        beep loop (off->beep transition).  Starting it here too used to fire a
        second, overlapping beep on the first tap — the "two audio sources for
@@ -1201,6 +1211,7 @@ function poll(){
 var lastFixTime=null;
 function resetTrack(reason){
   samples.length=0; cumDist=0; lastLat=null; lastLon=null; lastFixTime=null;
+  grHist.length=0;   // the sparkline history must restart with the track
   log("Track reset ("+reason+")");
 }
 function ingest(ftime,baroA,gpsA,lat,lon,spdC){
@@ -1286,7 +1297,9 @@ function compute(t){
   if(document.hidden) return;   // battery: buffer stays warm, but no DOM/audio work while hidden
   var gr=grNow(t);
   if(!demoActive){ currentGR=gr; updateGRDisplay(); applyLive(); }
-  sparkTick(t);                              // per fix: sparkline scrolls smoothly
+  /* self-heal: if anything ever wedges the trace, dump the history and let it
+     rebuild — a frozen trendline must never survive to the next fix */
+  try{ sparkTick(t); }catch(e){ grHist.length=0; log("spark self-heal: "+e.message); }
   var sec=(t/1000)|0;                        // battery: zone marker updates 1x/s
   if(sec!==lastStatusSec){ lastStatusSec=sec; uiTick(t); }
 }
@@ -1300,6 +1313,9 @@ var SPARK_MS=30000, SPARK_W=420;
 var grHist=[];
 function zoneOf(gr){ return gr>S.thr+0.5?"good":(gr<S.thr-0.5?"bad":"marginal"); }
 function sparkTick(t){
+  /* time went backwards (clock hiccup, replay scrub): stale future-stamped
+     points would never prune and the trace would freeze — restart it */
+  if(grHist.length&&grHist[grHist.length-1].t>t) grHist.length=0;
   if(currentGR!==null&&isFinite(currentGR))
     grHist.push({t:t,gr:currentGR,z:zoneOf(currentGR)});
   var t0=t-SPARK_MS;
@@ -1308,13 +1324,13 @@ function sparkTick(t){
   if(grHist.length>=5&&grHist[grHist.length-1].t-grHist[0].t>=2500){
     side.classList.add("show");
     /* FIXED y-axis: the full GR 4..20 range on the same log scale as the zone
-       bar and curve editor, using nearly the whole 32px height (y 2..30).
-       The line no longer rescales as values enter/leave the window — a given
-       GR always draws at the same height. */
+       bar and curve editor, spanning nearly the whole viewBox height
+       (64 units, y 4..60) for maximum vertical resolution.  A given GR
+       always draws at the same height. */
     var i, all="", segs=[], cur=null;
     for(i=0;i<grHist.length;i++){
       var P=((grHist[i].t-t0)/SPARK_MS*SPARK_W).toFixed(1)+","
-           +(30-zonePos(grHist[i].gr)*0.28).toFixed(1);
+           +(60-zonePos(grHist[i].gr)*0.56).toFixed(1);
       all+=(i?" ":"")+P;
       if(!cur||grHist[i].z!==cur.z){
         var nc={z:grHist[i].z,pts:cur&&cur.pts.length?
@@ -1377,7 +1393,7 @@ function updateGRDisplay(){
    timestamps, so faster polling adds freshness without adding noise. */
 setInterval(poll,100);
 edResize();
-log("v0.53: mini dot halved, medium fully viewport-scaled with smaller GR number, graph tucked closer to the number.");
+log("v0.54: medium fills its box (zone bar pinned to bottom), 2x sparkline y-resolution, self-healing trace, hidden pages can no longer steal the audio token.");
 
 // ================= offline caching =================
 if("serviceWorker" in navigator){

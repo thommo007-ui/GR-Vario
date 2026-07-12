@@ -3,217 +3,393 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>Glide Vario v0.43</title>
+<title>GR Vario v0.57</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;600;700&display=swap" rel="stylesheet">
 <style>
-  :root { --bg:#0A0D11; --ink:#F2F5F7; --ok:#2FD97B; --dim:#7C8894; --acc:#4FC3F7; --warn:#FFB74D;
-          --bad:#FF5A52; --sky:#4FC3F7; --green:#2FBE6A; --amber:#F09B2E; --mag:#E36BD6;
-          --line:rgba(255,255,255,.07); --panel:#141B23; --panel2:#0D1218; }
-  * { margin:0; padding:0; box-sizing:border-box; }
-  body { background:radial-gradient(120% 90% at 50% 0%, #10151C 0%, var(--bg) 60%);
-         color:var(--ink); min-height:100vh;
-         font-family:-apple-system,"SF Pro Display",Roboto,"Segoe UI",sans-serif; padding:12px;
-         -webkit-user-select:none; user-select:none; }
-  /* ---- surfaces: soft, slightly raised, tactile ---- */
-  .card, details, .sd, #edWrap, #audition {
-    background:linear-gradient(165deg,var(--panel),var(--panel2));
-    border:1px solid var(--line); border-radius:20px;
-    box-shadow:0 1px 0 rgba(255,255,255,.055) inset,
-               0 -1px 0 rgba(0,0,0,.4) inset,
-               0 10px 24px rgba(0,0,0,.42); }
-  .row { display:flex; gap:12px; margin-bottom:12px; }
-  .card { flex:1 1 0; min-width:0; padding:12px 14px; overflow:hidden; }
-  .label { font-size:11px; text-transform:uppercase; letter-spacing:.16em; color:var(--dim);
-           white-space:nowrap; overflow:hidden; height:18px; line-height:18px; font-weight:700;
-           text-align:center; }
-  .big { font-weight:800; letter-spacing:-.02em;
-         font-variant-numeric:tabular-nums; white-space:nowrap; text-align:center; }
-  #grCard { cursor:pointer; -webkit-tap-highlight-color:rgba(79,195,247,.2);
-            position:relative; padding:16px 14px 20px; }
-  #gr { font-size:clamp(64px, 22vmin, 96px); line-height:1.05; }
-  #gr.good     { color:var(--ok);   text-shadow:0 0 28px rgba(47,217,123,.28); }
-  #gr.marginal { color:var(--warn); text-shadow:0 0 28px rgba(255,183,77,.28); }
-  #gr.bad      { color:var(--bad);  text-shadow:0 0 28px rgba(255,90,82,.28); }
-  #sndDot { position:absolute; top:10px; right:14px; font-size:18px; color:#3A434C;
-            transition:color .3s; z-index:5; }
-  #sndDot.on { color:var(--ok); text-shadow:0 0 10px rgba(47,217,123,.8); animation:pulse 2.4s infinite; }
-  @keyframes pulse { 0%,100%{opacity:1;} 50%{opacity:.4;} }
-  #status { display:inline-block; font-size:11.5px; color:var(--dim); margin-bottom:10px;
-            padding:5px 12px; border-radius:999px; background:rgba(255,255,255,.045);
-            border:1px solid var(--line); }
-  #verTag { display:inline-block; font-size:11px; color:var(--dim); margin:0 0 10px 6px;
-            font-family:ui-monospace,Menlo,monospace; opacity:.7; }
-  body.mini #verTag { display:none; }
-  #hint { font-size:11.5px; color:var(--dim); text-align:center; margin:2px 0 10px; }
-  /* ---- settings panels ---- */
-  details { padding:14px 16px; margin-bottom:12px; }
-  summary { font-size:11px; text-transform:uppercase; letter-spacing:.14em; color:var(--dim);
-            font-weight:700; list-style:none; display:flex; align-items:center; gap:8px;
-            cursor:pointer; min-height:44px; }
-  summary::-webkit-details-marker { display:none; }
-  summary::before { content:"▸"; color:var(--acc); transition:transform .2s; font-size:12px; }
-  details[open] summary::before { transform:rotate(90deg); }
-  .sec { font-size:10.5px; text-transform:uppercase; letter-spacing:.14em; color:var(--acc);
-         font-weight:700; margin-top:16px; border-top:1px solid var(--line); padding-top:12px; }
-  .set { display:flex; align-items:center; gap:10px; margin-top:8px; font-size:14px;
-         min-height:48px; }
-  .set label { flex:1.4; color:#C6CFD6; }
-  /* big tactile sliders: 44px hit area, soft raised thumb */
-  .set input[type=range] { flex:2; -webkit-appearance:none; appearance:none;
-      height:44px; background:transparent;
-      touch-action:pan-y; }   /* vertical gestures scroll the page, not the slider */
-  .set input[type=range]::-webkit-slider-runnable-track { height:8px; border-radius:6px;
-      background:linear-gradient(180deg,#080C10,#151D26);
-      box-shadow:0 1px 2px rgba(0,0,0,.7) inset, 0 1px 0 rgba(255,255,255,.05); }
-  .set input[type=range]::-webkit-slider-thumb { -webkit-appearance:none;
-      width:28px; height:28px; margin-top:-10px; border-radius:50%;
-      background:linear-gradient(160deg,#7BD7FF,#2E9CD6);
-      border:1px solid rgba(255,255,255,.28);
-      box-shadow:0 3px 8px rgba(0,0,0,.55), 0 1px 0 rgba(255,255,255,.35) inset; }
-  .set input[type=checkbox] { width:22px; height:22px; accent-color:var(--acc); }
-  .set .val { width:58px; text-align:right; font-variant-numeric:tabular-nums;
-              color:var(--acc); font-weight:600; font-size:14px; }
-  /* ---- donation ---- */
-  #support { text-align:center; margin:16px 0 8px; }
-  #supBtn { display:inline-block; font-size:13.5px; font-weight:700; cursor:pointer;
-    color:#FFD79B; background:linear-gradient(180deg,#2E2812,#221D0C);
-    border:1px solid rgba(255,215,155,.25); border-radius:999px;
-    padding:10px 20px; -webkit-tap-highlight-color:rgba(255,215,155,.2); }
-  #supBtn:active { background:#3A320F; }
-  #supPanel { display:none; margin:10px auto 0; max-width:320px; padding:12px;
-    background:linear-gradient(180deg,var(--panel),var(--panel2));
-    border:1px solid var(--line); border-radius:14px; }
-  #supPanel.open { display:block; }
-  .supFlex { display:flex; align-items:center; gap:12px; }
-  #supQR { width:96px; height:96px; border-radius:10px; background:#fff; padding:4px; flex:none; }
-  .supRight { flex:1; text-align:left; }
-  .supUrl { font-family:ui-monospace,Menlo,monospace; font-size:16px; font-weight:700;
-    color:#FFD79B; -webkit-user-select:text; user-select:text; padding:4px 0; }
-  .supRow { margin-top:8px; }
-  .supCopy { display:inline-block; font-size:12.5px; font-weight:700; cursor:pointer;
-    color:var(--acc); border:1px solid rgba(79,195,247,.35); border-radius:999px;
-    padding:7px 16px; -webkit-tap-highlight-color:rgba(79,195,247,.2); }
-  .supCopy:active { background:rgba(79,195,247,.12); }
-  #support .note { font-size:10.5px; color:var(--dim); margin-top:7px; letter-spacing:.04em; }
-  /* ---- curve editor ---- */
-  /* side gutters: the padded strips beside the canvas scroll the page normally,
-     so a thumb can flick up/down without grabbing curve dots */
-  #edWrap { overflow:hidden; margin-top:12px; border-radius:16px; padding:0 16px; }
-  #edWrap canvas { display:block; width:100%; touch-action:none; }
-  #edReadout { display:flex; gap:12px; padding:0 12px; border-top:1px solid var(--line);
-    font-variant-numeric:tabular-nums; font-size:12px; flex-wrap:nowrap;
-    height:34px; align-items:center; overflow:hidden; white-space:nowrap; color:var(--dim); }
-  #edReadout span b { color:var(--sky); display:inline-block; text-align:right; font-weight:700; }
-  #eGr{min-width:3.2ch;} #eHz{min-width:4.2ch;} #eBps{min-width:3.2ch;} #eDuty{min-width:3.2ch;}
-  #audition { margin-top:10px; height:52px; border:1px dashed rgba(79,195,247,.35);
-    border-radius:14px; display:flex; align-items:center; justify-content:center;
-    color:var(--dim); font-size:12.5px; touch-action:none; }
-  #audition.active { border-color:var(--sky); border-style:solid; color:var(--sky);
-    box-shadow:0 0 16px rgba(79,195,247,.2) inset; }
-  #selHint { font-size:11px; color:var(--dim); margin-top:8px; min-height:14px; }
-  #selHint b { color:var(--ink); }
-  .edLegend { display:flex; gap:12px; margin-top:8px; font-size:10.5px; color:var(--dim); flex-wrap:wrap; }
-  .edLegend i { display:inline-block; width:14px; height:3px; border-radius:2px; vertical-align:middle; margin-right:4px; }
-  .tones { display:flex; gap:10px; margin-top:12px; }
-  .sd { flex:1; padding:10px; border-radius:14px; }
-  .sdT { font-size:10px; text-transform:uppercase; letter-spacing:.12em; margin-bottom:4px; font-weight:700; }
-  .sd.badL .sdT { color:var(--amber); } .sd.goodL .sdT { color:var(--green); }
-  .sd .fld { margin-top:8px; font-size:10.5px; color:var(--dim); letter-spacing:.03em; }
-  .sd select { width:100%; margin-top:4px; background:#0B1015; color:#fff;
-               border:1px solid var(--line); border-radius:10px; padding:9px; font-size:13px; }
-  .sd .cbrow { display:flex; align-items:center; gap:8px; margin-top:9px; font-size:12px; color:#C6CFD6; }
-  .sd .cbrow input { width:17px; height:17px; accent-color:var(--acc); }
-  /* ---- MINI MODE (?mini=1): giant GR number, transparent bg, no text ---- */
-  html.mini, body.mini { padding:0; overflow:hidden; background:transparent; }
-  body.mini #status, body.mini #hint,
-  body.mini details, body.mini #support { display:none; }
-  body.mini .row.r1 { margin:0; gap:0; height:100vh; }
-  body.mini #grCard { height:100vh; border:none; border-radius:0; padding:0; background:transparent;
-    box-shadow:none; display:flex; flex-direction:column; align-items:center; justify-content:center; }
-  /* mini keeps a readable title + averaging label, haloed for map overlay */
-  body.mini .label { display:block; position:fixed; top:max(2px,1vmin); left:50%;
-    transform:translateX(-50%); width:auto; height:auto; overflow:visible;
-    font-size:max(11px,4.5vmin); line-height:1.2; letter-spacing:.12em; color:#333;
-    text-shadow:0 0 .18em #fff, 0 0 .3em #fff, 0 0 .45em #fff; z-index:8; }
-  body.mini #gr { font-size:48vmin; height:auto; line-height:1; }
-  body.mini #gr, body.mini #gr.good, body.mini #gr.marginal, body.mini #gr.bad { text-shadow:
-    -.045em -.045em 0 #fff, .045em -.045em 0 #fff,
-    -.045em .045em 0 #fff, .045em .045em 0 #fff,
-    0 -.06em 0 #fff, 0 .06em 0 #fff, -.06em 0 0 #fff, .06em 0 0 #fff; }
-  body.mini #gr          { color:#000; }
-  body.mini #gr.good     { color:#00A551; }
-  body.mini #gr.marginal { color:#EF8A00; }
-  body.mini #gr.bad      { color:#D92B20; }
-  /* dot pinned to the viewport with a px floor so a tiny widget can't shrink it away */
-  body.mini #sndDot { position:fixed; top:max(3px,1vmin); right:max(5px,2vmin);
-    font-size:max(15px,8vmin); color:#999; animation:none;
-    text-shadow:0 0 .12em #fff, 0 0 .2em #fff; z-index:9; }
-  body.mini #sndDot.on { color:#00A551; }
-  #miniVer { display:none; }
-  body.mini #miniVer { display:block; position:fixed; bottom:1vmin; left:2vmin;
-    font-size:3.5vmin; color:#999; font-family:ui-monospace,monospace;
-    text-shadow:0 0 .15em #fff; opacity:1; transition:opacity 2s; z-index:9; }
+  /* ============ Daylight design tokens ============ */
+  :root{ --bg:#F7F5F0; --surface:#FFFFFF; --ink:#1A1D21; --mid:#5C6167; --dim:#9AA0A6;
+    --hink:#3A3E44; --good:#1F9D5B; --bgreen:#2BB56A; --amber:#EFA13B; --amberD:#C07A17;
+    --red:#E4574C; --blue:#2A78D6; --mag:#C255AE;
+    --tintA:#FDF3E4; --tintG:#E7F5EC; --tintCard:#F1FAF4; --off:#FBFAF7; --line:rgba(0,0,0,.08);
+    --font:'Space Grotesk',system-ui,-apple-system,sans-serif;
+    --mono:'IBM Plex Mono',ui-monospace,Menlo,monospace;
+    --haloS:0 0 .18em #fff,0 0 .3em #fff,0 0 .45em #fff;
+    --haloB:-.045em -.045em 0 #fff,.045em -.045em 0 #fff,-.045em .045em 0 #fff,
+            .045em .045em 0 #fff,0 -.06em 0 #fff,0 .06em 0 #fff,-.06em 0 0 #fff,.06em 0 0 #fff; }
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{background:var(--bg);color:var(--ink);min-height:100vh;font-family:var(--font);
+    padding:18px 18px 22px;-webkit-user-select:none;user-select:none}
+  /* ============ header ============ */
+  #hdr{display:flex;align-items:center;justify-content:space-between}
+  .logo{font-size:17px;font-weight:700;letter-spacing:.09em;color:var(--ink)}
+  .lg{color:var(--good)}.lr{color:var(--amber)}
+  .hdrR{display:flex;align-items:center;gap:8px}
+  #status{display:flex;align-items:center;gap:7px;font-size:12px;font-weight:500;color:var(--mid);
+    background:#FFF;border:1px solid var(--line);border-radius:999px;padding:6px 12px;white-space:nowrap}
+  #statusDot{width:8px;height:8px;border-radius:50%;background:var(--dim);flex:none}
+  #status.conn #statusDot{background:var(--good)}
+  #verTag{font-size:11px;color:var(--dim);font-family:var(--mono)}
+  #hint{font-size:11.5px;color:var(--dim);text-align:center;margin:10px 2px 0}
+  /* ============ cards ============ */
+  .card{background:var(--surface);border:1px solid var(--line);border-radius:24px;
+    box-shadow:0 2px 8px rgba(0,0,0,.05)}
+  .row{display:flex}.row .card{flex:1;min-width:0}
+  /* ============ GR card ============ */
+  #grCard{padding:22px 20px 20px;margin-top:14px;cursor:pointer;position:relative;
+    -webkit-tap-highlight-color:rgba(31,157,91,.15)}
+  #grCard.on{background:var(--tintCard);border-color:rgba(31,157,91,.3);
+    box-shadow:0 2px 8px rgba(31,157,91,.08)}
+  .grHead{display:flex;align-items:baseline;justify-content:space-between}
+  .cardLabel{font-size:12px;font-weight:600;letter-spacing:.1em;color:var(--dim);text-transform:uppercase}
+  .logoTitle{display:none}
+  .grHeadR{display:flex;align-items:center;gap:10px}
+  #sndChip{display:flex;align-items:center;gap:5px;font-size:11px;font-weight:700;
+    letter-spacing:.06em;color:var(--dim)}
+  #sndChip .chipDot{width:8px;height:8px;border-radius:50%;background:var(--dim);flex:none}
+  #sndChip.on{color:var(--good)}
+  #sndChip.on .chipDot{background:var(--good);box-shadow:0 0 6px rgba(31,157,91,.5)}
+  #avgLbl{font-size:11px;color:var(--dim)}
+  .grRow{display:flex;align-items:center;gap:8px;margin-top:6px}
+  .big{font-weight:700;line-height:1;font-variant-numeric:tabular-nums;letter-spacing:-.04em;
+    white-space:nowrap}
+  /* fixed-width number box: "9.6" and "10.2" occupy the same space, so the
+     graph beside it never gets pushed around by digit-count changes.
+     Centred, so 3-digit values split the spare space instead of leaving it
+     all as a gap between the number and the graph. */
+  #gr{font-size:clamp(72px,26vw,104px);min-width:3.5ch;text-align:center}
+  #gr.good{color:var(--good)} #gr.marginal{color:var(--amberD)} #gr.bad{color:#D92B20}
+  .grSide{flex:1;min-width:0;display:flex;flex-direction:column;gap:6px;visibility:hidden}
+  .grSide.show{visibility:visible}
+  .trend{display:flex;align-items:center;gap:5px;font-size:16px;font-weight:700;color:var(--good)}
+  .trend.down{color:#D92B20}
+  #spark{width:100%;height:52px;display:block;overflow:visible}  /* bold line not clipped at extremes */
+  #sparkW{display:none}
+  /* the line is "printed" in the zone colour it had when recorded */
+  /* uniform non-scaling stroke; 11.2px = 70% of the 16px zone bar beneath it */
+  .sparkSeg{fill:none;stroke-width:11.2px;vector-effect:non-scaling-stroke;
+    stroke-linecap:round;stroke-linejoin:round}
+  .sparkSeg.good{stroke:#1F9D5B}
+  .sparkSeg.marginal{stroke:#C07A17}
+  .sparkSeg.bad{stroke:#D92B20}
+  body.medium .sparkSeg.marginal,body.mini .sparkSeg.marginal{stroke:#EF8A00}
+  /* medium: line as thick as the GR number's strokes, uniform (non-scaling so
+     the non-square viewBox can't distort it), scaling with the widget */
+  body.medium .sparkSeg{stroke-width:3.4vmin;vector-effect:non-scaling-stroke}
+  body.medium #sparkW{stroke-width:5.4vmin;vector-effect:non-scaling-stroke}
+  .sparkLbl{font-size:10px;color:var(--dim);font-family:var(--mono)}
+  /* ============ zone bar ============ */
+  .zoneWrap{margin-top:18px}
+  .zoneFrame{border-radius:11px}
+  .zoneBar{position:relative;height:16px;display:flex;gap:3px}
+  .zoneBar .zr{flex:3.48;background:var(--red);border-radius:8px 3px 3px 8px}
+  .zoneBar .za{flex:3.08;background:var(--amber)}
+  .zoneBar .zg{flex:3.44;background:var(--bgreen);border-radius:3px 8px 8px 3px}
+  #zoneThrTick{position:absolute;top:1px;width:2px;height:14px;background:rgba(255,255,255,.55);
+    border-radius:1px;transform:translateX(-50%);left:50.4%}
+  #zoneNow{position:absolute;top:-6px;width:4px;height:28px;background:var(--ink);border-radius:2px;
+    box-shadow:0 0 0 2px #FFF;transform:translateX(-50%);transition:left .4s ease;display:none}
+  .zoneLbls{position:relative;display:flex;justify-content:space-between;font-size:10.5px;
+    color:var(--dim);margin-top:8px;font-family:var(--mono)}
+  #zoneThrLbl{position:absolute;transform:translateX(-50%);left:50.4%;color:var(--amber);font-weight:600}
+  /* ============ settings ============ */
+  #setCard{padding:18px 20px;margin-top:12px}
+  .secLbl{font-size:12px;font-weight:600;letter-spacing:.1em;color:var(--dim);
+    text-transform:uppercase;margin-bottom:4px}
+  .set{display:flex;align-items:center;gap:12px;min-height:52px}
+  .set label{flex:1.2;font-size:14px;font-weight:500;color:var(--ink)}
+  .set input[type=range]{flex:2;-webkit-appearance:none;appearance:none;height:44px;
+    background:transparent;touch-action:pan-y;--fill:50%}
+  .set input[type=range]::-webkit-slider-runnable-track{height:14px;border-radius:999px;
+    background:linear-gradient(to right,var(--blue) var(--fill),#EDEAE3 var(--fill))}
+  .set input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:32px;height:32px;
+    margin-top:-9px;border-radius:50%;background:#FFF;border:3px solid var(--blue);
+    box-shadow:0 2px 6px rgba(0,0,0,.15)}
+  .set .val{width:48px;text-align:right;font-size:15px;font-weight:700;color:var(--blue);
+    font-variant-numeric:tabular-nums}
+  /* ============ accordions ============ */
+  .accSec{border-top:1px solid rgba(0,0,0,.06);margin-top:8px}
+  .accSec.sndSec{border-top:none;margin-top:4px}   /* boxed header replaces the divider */
+  .accHead{display:flex;align-items:center;justify-content:space-between;min-height:48px;
+    font-size:14px;font-weight:500;cursor:pointer;-webkit-tap-highlight-color:rgba(42,120,214,.1)}
+  .chev{font-size:12px;color:var(--blue);transition:transform .25s ease;display:inline-block}
+  .accHead.open .chev,.sdHead.open .chev,#supBtn.open .chev{transform:rotate(180deg)}
+  .accBody,.sdBody{overflow:hidden;max-height:0;transition:max-height .25s ease}
+  /* Sound designer: a special, tactile boxed header so it reads as the door to
+     the deep sound-shaping controls, not just another row. */
+  #curvesHead{margin-top:6px;padding:0 12px 0 14px;min-height:58px;border-radius:16px;
+    background:linear-gradient(135deg,#EAF2FD,#EAF7EF);
+    border:1.5px solid rgba(42,120,214,.28);font-weight:700;font-size:16px;color:var(--ink);
+    box-shadow:0 1px 3px rgba(42,120,214,.14),inset 0 1px 0 rgba(255,255,255,.7)}
+  #curvesHead:active{transform:scale(.99)}
+  .sdTitleWrap{display:flex;align-items:center;gap:10px}
+  .sdEq{flex:none}
+  /* the round chevron button — reused by the PayPal control so they match */
+  .chevBtn{width:30px;height:30px;flex:none;border-radius:50%;display:flex;align-items:center;
+    justify-content:center;font-size:15px;line-height:1;color:#fff;background:var(--blue);
+    box-shadow:0 2px 5px rgba(42,120,214,.4);transition:transform .25s ease}
+  #curvesHead.open .chevBtn,#supBtn.open .chevBtn{transform:rotate(180deg)}
+  /* ============ curve editor ============ */
+  /* side padding = scroll gutters: flicking there scrolls the page, not the graph */
+  #edWrap{border:1px solid rgba(0,0,0,.07);border-radius:12px;margin-top:4px;overflow:hidden;
+    background:var(--off);padding:0 14px}
+  #edWrap canvas{display:block;width:100%;touch-action:none}
+  #edReadout{display:flex;gap:6px;padding:10px 0;border-top:1px solid rgba(0,0,0,.06);flex-wrap:wrap}
+  .chip{font-size:11px;font-family:var(--mono);color:var(--mid);background:#FFF;
+    border:1px solid var(--line);border-radius:999px;padding:4px 10px;white-space:nowrap}
+  .chip b{color:var(--ink);font-weight:700}
+  .chip #eHz{color:var(--blue)} .chip #eBps{color:var(--bgreen)} .chip #eDuty{color:var(--mag)}
+  .edLegend{display:flex;gap:12px;margin-top:10px;font-size:11px;color:var(--mid);flex-wrap:wrap}
+  .edLegend i{display:inline-block;width:14px;height:3px;border-radius:2px;
+    vertical-align:middle;margin-right:5px}
+  #selHint{font-size:11px;color:var(--dim);margin-top:8px;min-height:14px}
+  #selHint b{color:var(--ink)}
+  #audition{margin-top:10px;height:52px;border:2px dashed rgba(42,120,214,.4);border-radius:14px;
+    display:flex;align-items:center;justify-content:center;color:var(--blue);font-size:13px;
+    font-weight:500;touch-action:none}
+  #audition.active{border-style:solid;background:rgba(42,120,214,.06)}
+  /* ============ sound designer ============ */
+  .tones{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px;align-items:start;
+    padding-bottom:6px}
+  .sd{border-radius:14px;overflow:hidden}
+  .sd.badL{background:var(--tintA);border:1px solid rgba(239,161,59,.35)}
+  .sd.goodL{background:var(--tintG);border:1px solid rgba(43,181,106,.35)}
+  .sdHead{min-height:50px;display:flex;align-items:center;justify-content:space-between;
+    padding:0 12px;cursor:pointer;-webkit-tap-highlight-color:transparent}
+  .sdHT{display:flex;flex-direction:column;gap:1px}
+  .sdT{font-size:10px;font-weight:700;letter-spacing:.08em}
+  .badL .sdT{color:var(--amberD)} .goodL .sdT{color:var(--good)}
+  .badL .chev{color:var(--amberD)} .goodL .chev{color:var(--good)}
+  .sdSum{font-size:11.5px;color:var(--mid)}
+  .sdBody{background:#FFF}
+  .badL .sdBody{border-top:1px solid rgba(239,161,59,.25)}
+  .goodL .sdBody{border-top:1px solid rgba(43,181,106,.25)}
+  .sdInner{padding:10px 12px 12px;display:flex;flex-direction:column;gap:10px}
+  .fld{display:flex;flex-direction:column;gap:5px;font-size:10px;font-weight:600;
+    letter-spacing:.06em;color:var(--dim);text-transform:uppercase}
+  .fld select{min-height:42px;width:100%;background:var(--off);border:1.5px solid rgba(0,0,0,.1);
+    border-radius:10px;padding:0 10px;font-size:12.5px;font-weight:500;color:var(--ink);
+    font-family:var(--font)}
+  .cbrow{min-height:42px;display:flex;align-items:center;gap:9px;font-size:12.5px;
+    font-weight:500;color:var(--ink)}
+  .cbrow + .cbrow{border-top:1px solid rgba(0,0,0,.05)}
+  .cbrow input{-webkit-appearance:none;appearance:none;width:24px;height:24px;flex:none;
+    border-radius:7px;background:#FFF;border:1.5px solid rgba(0,0,0,.18)}
+  .cbrow input:checked{background:var(--good);border-color:var(--good);
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='11' viewBox='0 0 14 11'%3E%3Cpolyline points='1.5,5.5 5.5,9.5 12.5,1.5' fill='none' stroke='%23FFFFFF' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    background-repeat:no-repeat;background-position:center}
+  /* ============ PayPal ============ */
+  #support{margin-top:12px}
+  #supBtn{height:50px;display:flex;align-items:center;justify-content:center;gap:9px;
+    padding:0 14px;background:linear-gradient(180deg,#FFF7E3,#FDEDC4);
+    border:1.5px solid rgba(255,196,57,.7);border-radius:16px;
+    box-shadow:0 1px 3px rgba(0,0,0,.06),inset 0 1px 0 rgba(255,255,255,.7);
+    cursor:pointer;-webkit-tap-highlight-color:rgba(0,48,135,.12);transition:transform .1s}
+  #supBtn:active{transform:scale(.99)}
+  .ppWord{font-size:16px;font-weight:700;font-style:italic;letter-spacing:-.02em;
+    font-family:Verdana,system-ui,sans-serif}
+  .pp1{color:#003087}.pp2{color:#0070BA}
+  .ppTxt{font-size:13px;font-weight:600;color:#003087}
+  #supBtn .chevBtn{background:#003087;box-shadow:0 2px 5px rgba(0,48,135,.35);
+    width:26px;height:26px;font-size:13px}
+  #supPanel{display:none;background:#FFF;border:1px solid var(--line);border-radius:20px;
+    margin-top:10px;padding:16px 18px;box-shadow:0 2px 8px rgba(0,0,0,.05)}
+  #supPanel.open{display:block}
+  .supFlex{display:flex;align-items:center;gap:16px}
+  #supQR{width:104px;height:104px;flex:none;border-radius:12px;border:1px solid rgba(0,0,0,.1);
+    background:#FFF;padding:4px}
+  .supRight{flex:1;display:flex;flex-direction:column;gap:10px;min-width:0}
+  .supUrl{font-size:16px;font-weight:700;font-family:var(--mono);color:#8A5A10;
+    -webkit-user-select:text;user-select:text;overflow-wrap:anywhere}
+  .supCopy{display:flex;align-items:center;justify-content:center;height:44px;background:#0070BA;
+    border-radius:999px;color:#FFF;font-size:14px;font-weight:600;cursor:pointer;
+    -webkit-tap-highlight-color:rgba(255,255,255,.2)}
+  #supPanel .note{font-size:11px;color:var(--dim);margin-top:12px;line-height:1.5}
+  .foot{text-align:center;margin-top:12px;font-size:11.5px;color:var(--dim)}
+  /* ============ MINI (?mini=1): giant haloed number over the map ============ */
+  #miniLabel{display:none}
+  #sndDot{display:none}
+  #miniVer{display:none}
+  html.mini,body.mini{padding:0;overflow:hidden;background:transparent}
+  body.mini #hdr,body.mini #hint,body.mini #setCard,body.mini #support,
+  body.mini .grHead,body.mini .grSide,body.mini .zoneWrap{display:none}
+  body.mini .row.r1{margin:0;height:100vh}
+  body.mini #grCard,body.mini #grCard.on{height:100vh;border:none;border-radius:0;padding:0;
+    background:transparent;box-shadow:none;display:flex;align-items:center;justify-content:center;
+    margin:0}
+  body.mini #miniLabel{display:block;position:fixed;top:max(3px,1vmin);left:50%;
+    transform:translateX(-50%);font-size:max(11px,4.5vmin);font-weight:600;letter-spacing:.12em;
+    color:var(--hink);white-space:nowrap;text-shadow:var(--haloS);z-index:8;text-transform:uppercase}
+  body.mini #sndDot{display:block;position:fixed;top:max(5px,1.5vmin);right:max(7px,2vmin);
+    width:max(7px,2.5vmin);height:max(7px,2.5vmin);border-radius:50%;background:#999;
+    box-shadow:0 0 0 2px #fff;z-index:9}
+  body.mini #sndDot.on{background:var(--good)}
+  body.mini #gr{font-size:48vmin;text-shadow:var(--haloB);color:var(--hink);
+    min-width:0;text-align:center}   /* mini centres its lone number */
+  body.mini #gr.good{color:var(--good)}
+  body.mini #gr.marginal{color:#EF8A00}
+  body.mini #gr.bad{color:#D92B20}
+  body.mini #miniVer{display:block;position:fixed;bottom:1vmin;left:2vmin;
+    font-size:3.5vmin;color:#999;font-family:var(--mono);
+    text-shadow:0 0 .15em #fff;opacity:1;transition:opacity 2s;z-index:9}
+  /* ============ MEDIUM (?medium=1): GR card only, transparent, haloed ============ */
+  html.medium,body.medium{padding:0;background:transparent;overflow:hidden}
+  body.medium #hdr,body.medium #hint,body.medium #setCard,body.medium #support{display:none}
+  /* the card FILLS the widget box: flex column with the zone bar pinned to
+     the bottom, so shrinking the widget never leaves dead space below the
+     colour bar — any spare height is absorbed between the rows instead */
+  body.medium .row.r1{margin:0;height:100vh}
+  /* Fill the widget box at ANY size with minimal gaps: header pinned top,
+     zone bar pinned bottom, and the GR row (with its graph) FLEXES to eat all
+     the space between them — so there's no fixed height to leave a gap or dead
+     space, whatever the window shape. */
+  body.medium #grCard,body.medium #grCard.on{background:transparent;border:none;box-shadow:none;
+    border-radius:0;padding:2.2vmin 4vmin;margin:0;height:100vh;
+    display:flex;flex-direction:column;justify-content:flex-start}
+  body.medium .grHead{flex:none}
+  body.medium .grRow{flex:1 1 auto;min-height:0;align-items:stretch}
+  body.medium #gr{align-self:center}
+  body.medium .grSide{flex:1;min-width:0;justify-content:center}
+  body.medium #spark{flex:1;height:auto;min-height:0}
+  body.medium .zoneWrap{flex:none}
+  body.medium .mainTitle{display:none}
+  body.medium .logoTitle{display:inline;text-shadow:var(--haloS)}
+  body.medium .cardLabel{color:var(--hink)}
+  body.medium #sndChip{text-shadow:var(--haloS)}
+  body.medium #sndChip .chipDot{box-shadow:0 0 0 2px #fff}
+  body.medium #sndChip.on .chipDot{box-shadow:0 0 0 2px #fff,0 0 6px rgba(31,157,91,.5)}
+  body.medium #avgLbl{color:var(--hink);text-shadow:var(--haloS)}
+  body.medium #gr{text-shadow:var(--haloB)}
+  body.medium #gr.marginal{color:#EF8A00}
+  body.medium .trend{text-shadow:var(--haloS)}
+  body.medium #trendPoly{stroke:#fff;stroke-width:1.5}
+  body.medium #sparkW{display:block}
+  body.medium .sparkLbl{color:var(--hink);font-weight:600;text-shadow:var(--haloS)}
+  body.medium .zoneFrame{background:#FFF;padding:max(1px,.6vmin)}
+  body.medium .zoneLbls{color:var(--hink);font-weight:600;text-shadow:var(--haloS)}
+  body.medium #zoneThrLbl{color:var(--amberD)}
+  /* medium SCALES with the widget: every dimension in viewport units, so
+     resizing the XCTrack widget zooms the whole card, and the GR number is
+     deliberately smaller so the graph and zone bar read on an instrument
+     screen. */
+  body.medium .grRow{gap:3vmin;margin-top:.6vmin}
+  body.medium .cardLabel{font-size:max(8px,4vmin);letter-spacing:.1em}
+  body.medium .grHeadR{gap:2.5vmin}
+  body.medium #sndChip{font-size:max(7px,3.4vmin)}
+  body.medium #sndChip .chipDot{width:max(5px,2.4vmin);height:max(5px,2.4vmin)}
+  body.medium #avgLbl{font-size:max(7px,3.4vmin)}
+  body.medium #gr{font-size:min(30vw,44vh)}   /* fills, capped so it never overflows width */
+  body.medium .grSide{gap:1.2vmin}
+  body.medium .trend{font-size:max(8px,4.6vmin)}
+  body.medium .trend svg{width:max(7px,3.8vmin);height:auto}
+  body.medium .sparkLbl{font-size:max(6px,2.8vmin)}
+  body.medium .zoneWrap{margin-top:.6vmin}
+  body.medium .zoneBar{height:4.6vmin;gap:max(1px,.9vmin)}
+  body.medium #zoneThrTick{height:4vmin;top:.3vmin;width:max(1px,.6vmin)}
+  body.medium #zoneNow{width:max(2px,1.2vmin);height:8vmin;top:-1.7vmin}
+  body.medium .zoneLbls{font-size:max(6px,3vmin);margin-top:2.2vmin}
 </style>
 </head>
 <body>
 
-<div id="status">Waiting for XCTrack data…</div><span id="verTag">v0.43</span>
-<div id="miniVer">v0.43</div>
+<div id="hdr">
+  <div class="logo"><b class="lg">G</b><b class="lr">R</b> VARIO</div>
+  <div class="hdrR">
+    <div id="status"><span id="statusDot"></span><span id="statusTxt">Waiting · XCTrack</span></div>
+    <span id="verTag">v0.57</span>
+  </div>
+</div>
+<div id="miniVer">v0.57</div>
 
 <div class="row r1">
   <div class="card" id="grCard">
-    <span id="sndDot" title="audio state">●</span>
-    <div class="label">GR Vario <span id="avgLbl"></span></div>
-    <div class="big" id="gr">–</div>
+    <div id="miniLabel"><b class="lg">G</b><b class="lr">R</b> VARIO · <span id="miniAvg">12S AVG</span></div>
+    <span id="sndDot" title="audio state"></span>
+    <div class="grHead">
+      <div class="cardLabel"><span class="mainTitle">Glide ratio</span><span class="logoTitle"><b class="lg">G</b><b class="lr">R</b> VARIO</span></div>
+      <div class="grHeadR">
+        <span id="sndChip"><span class="chipDot"></span><span id="sndChipTxt">SOUND OFF</span></span>
+        <span id="avgLbl">12s avg</span>
+      </div>
+    </div>
+    <div class="grRow">
+      <div class="big" id="gr">–</div>
+      <div class="grSide" id="grSide">
+        <div class="trend" id="trend"><svg width="13" height="11" viewBox="0 0 12 10"><polygon id="trendPoly" points="6,0 12,10 0,10" fill="#1F9D5B"></polygon></svg><span id="trendVal">–</span></div>
+        <svg id="spark" viewBox="0 0 420 64" preserveAspectRatio="none"><polyline id="sparkW" fill="none" stroke="#FFFFFF" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" points=""></polyline><g id="sparkSegs"></g></svg>
+        <div class="sparkLbl">LAST 30S</div>
+      </div>
+    </div>
+    <div class="zoneWrap">
+      <div class="zoneFrame"><div class="zoneBar">
+        <div class="zr"></div><div class="za"></div><div class="zg"></div>
+        <span id="zoneThrTick"></span><span id="zoneNow"></span>
+      </div></div>
+      <div class="zoneLbls"><span>4</span><span id="zoneThrLbl">THR 9</span><span>20</span></div>
+    </div>
   </div>
 </div>
 
-<div id="hint">Tap the glide number to enable sound · slide the strip in settings to audition</div>
+<div id="hint">Tap the GR card to enable sound · if no data arrives, allow web-page data access in XCTrack</div>
 
-<details id="setPanel">
-  <summary>Sound &amp; averaging settings</summary>
+<div class="card" id="setCard">
+  <div class="secLbl">Settings</div>
+  <div class="set"><label for="g_avg">Averaging</label><input type="range" id="g_avg" min="4" max="30" step="1"><span class="val"><span id="g_avgV"></span>s</span></div>
+  <div class="set"><label for="g_vol">Volume</label><input type="range" id="g_vol" min="0" max="100" step="5"><span class="val" id="g_volV"></span></div>
 
-  <div class="sec">General</div>
-  <div class="set"><label>GR averaging (s)</label><input type="range" id="g_avg" min="4" max="30" step="1"><span class="val" id="g_avgV"></span></div>
-  <div class="set"><label>Master volume</label><input type="range" id="g_vol" min="0" max="100" step="5"><span class="val" id="g_volV"></span></div>
-
-  <div class="sec">Tone curves — drag dots &amp; the threshold line</div>
-  <div id="edWrap">
-    <canvas id="cv"></canvas>
-    <div id="edReadout">
-      <span>GR <b id="eGr">–</b></span>
-      <span>Pitch <b id="eHz">–</b> Hz</span>
-      <span>Beeps <b id="eBps">–</b>/s</span>
-      <span>Duty <b id="eDuty">–</b>%</span>
+  <div class="accSec sndSec">
+    <div class="accHead" id="curvesHead">
+      <span class="sdTitleWrap">
+        <svg class="sdEq" width="20" height="20" viewBox="0 0 20 20" aria-hidden="true"><rect x="1.5" y="7" width="4" height="11.5" rx="2" fill="#2A78D6"/><rect x="8" y="2" width="4" height="16.5" rx="2" fill="#2BB56A"/><rect x="14.5" y="11" width="4" height="7.5" rx="2" fill="#C255AE"/></svg>
+        Sound designer</span>
+      <span class="chevBtn">▾</span>
+    </div>
+    <div class="accBody" id="curvesBody">
+      <div id="edWrap">
+        <canvas id="cv"></canvas>
+        <div id="edReadout">
+          <span class="chip">GR <b id="eGr">–</b></span>
+          <span class="chip">Pitch <b id="eHz">–</b> Hz</span>
+          <span class="chip">Beeps <b id="eBps">–</b>/s</span>
+          <span class="chip">Duty <b id="eDuty">–</b>%</span>
+        </div>
+      </div>
+      <div class="edLegend">
+        <span><i style="background:#2A78D6"></i>Pitch</span>
+        <span><i style="background:#2BB56A"></i>Beep rate</span>
+        <span><i style="background:#C255AE"></i>Duty</span>
+        <span><i style="background:#EFA13B"></i>Threshold</span>
+      </div>
+      <div id="selHint">Tap a line to select it; then drags grab that curve's dots.</div>
+      <div id="audition">◄ slide to audition ►</div>
+      <div class="tones">
+        <div class="sd badL">
+          <div class="sdHead" id="sdBadHead"><div class="sdHT"><span class="sdT">BAD AIR</span><span class="sdSum" id="sumBad">–</span></div><span class="chev">▾</span></div>
+          <div class="sdBody" id="sdBadBody"><div class="sdInner" id="sdBad"></div></div>
+        </div>
+        <div class="sd goodL">
+          <div class="sdHead" id="sdGoodHead"><div class="sdHT"><span class="sdT">GOOD AIR</span><span class="sdSum" id="sumGood">–</span></div><span class="chev">▾</span></div>
+          <div class="sdBody" id="sdGoodBody"><div class="sdInner" id="sdGood"></div></div>
+        </div>
+      </div>
     </div>
   </div>
-  <div id="audition">◄ slide here to audition the tone across GR ►</div>
-  <div id="selHint">Tap a line to select it; then drags grab that curve's dots.</div>
-  <div class="edLegend">
-    <span><i style="background:var(--sky)"></i>Pitch (Hz)</span>
-    <span><i style="background:var(--green)"></i>Beep rate (/s)</span>
-    <span><i style="background:var(--mag)"></i>Duty % (100 = solid)</span>
-    <span><i style="background:var(--amber)"></i>Threshold</span>
-  </div>
-
-  <div class="tones">
-    <div class="sd badL" id="sdBad"><div class="sdT">Bad air sound (left of threshold)</div></div>
-    <div class="sd goodL" id="sdGood"><div class="sdT">Good air sound (right of threshold)</div></div>
-  </div>
-</details>
+</div>
 
 <div id="support">
-  <div id="supBtn" role="button">☕ Support this project — shout Luke a coffee</div>
+  <div id="supBtn" role="button"><span class="ppWord"><span class="pp1">Pay</span><span class="pp2">Pal</span></span><span class="ppTxt">· Shout Luke a coffee</span><span class="chevBtn">▾</span></div>
   <div id="supPanel">
     <div class="supFlex">
       <img id="supQR" alt="PayPal QR" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAK4AAACuAQAAAACHdwtDAAABTUlEQVR4nO2XsY1cMQxEHy0BG0qAC9hS+DtwScZ2pl/KFWCAP1xAwjjQJcbdhV4GNjNNwgE5Q1ImPon17TMU/g0YBUAJn00lHACfOQRdEm3c3gwokiKlJhUwnOvH6jy/R716+ZXatPYowS1emfIr2MFfnPIjLA2u49mZ10HTTGNymhlwCyosM+tJLn6PMfESvh85Lr6OCtYpGhNWp15Hlk6W2cQ3n8r57GndAd8zdiMlUmYsCmhDUpEmSCNNJ20AlfNpRwmvOFeaToBnp+ix7o/VWT1tF0+8aNDG7k6aTqTZNKGEK5gbSarJtg9NCsBny1KseO8RFVdQ3pIUe5mZVc7KOfe98tdTfgXvm01cP60zM5lgdgAlmJzWWfeRe2iv+4M2FNSXpfwzFL73Dk3gE2bObY/C99JReAmfeOI8AUo428Iaypmx9v83+iF+AwHpzZFyNnHqAAAAAElFTkSuQmCC">
       <div class="supRight">
         <div class="supUrl" id="supUrl">paypal.me/irluke/5</div>
-        <div class="supRow"><div class="supCopy" id="supCopy">Copy link</div></div>
+        <div class="supCopy" id="supCopy">Copy link</div>
       </div>
     </div>
     <div class="note">Scan with another phone, or copy &amp; paste in your browser — payments can't open inside XCTrack.</div>
   </div>
-  <div class="note">Free to use · donations keep it flying</div>
+  <div class="foot">Free to use · donations keep it flying</div>
 </div>
 
 <script>
@@ -227,6 +403,10 @@ function clamp(x,a,b){ return Math.max(a,Math.min(b,x)); }
 if(/[?&]mini=1/.test(location.search)){
   document.body.classList.add("mini");
   document.documentElement.classList.add("mini");
+} else if(/[?&]medium=1/.test(location.search)){
+  /* medium mode: the GR card only, transparent + haloed, for the flight screen */
+  document.body.classList.add("medium");
+  document.documentElement.classList.add("medium");
 }
 
 // ================= settings =================
@@ -279,6 +459,32 @@ function setThrValue(t){
   ["pitch","rate","duty"].forEach(function(k){
     S.curves[k][2].gr=S.thr-EPS; S.curves[k][3].gr=S.thr+EPS;
   });
+  updateZoneThr();
+}
+/* zone-bar positioning shares the log GR mapping: left% = ln(gr/4)/ln(5)*100 */
+function zonePos(gr){ return clamp(Math.log(gr/4)/Math.log(5)*100,0,100); }
+function fmtThr(t){ return (t%1)?t.toFixed(1):String(t); }
+function updateZoneThr(){
+  var lbl=$("zoneThrLbl"); if(!lbl) return;
+  var p=zonePos(S.thr)+"%";
+  lbl.style.left=p; lbl.textContent="THR "+fmtThr(S.thr);
+  $("zoneThrTick").style.left=p;
+  /* The amber band IS the marginal band: THR ± 0.5, the exact range where the
+     GR number reads orange — so the now-marker always sits in the colour the
+     number is showing.  Widths follow the log scale, so the amber band gets
+     visually narrower as the threshold moves toward the high end. */
+  var lo=Math.max(GR_MIN,S.thr-0.5), hi=Math.min(GR_MAX,S.thr+0.5);
+  document.querySelector(".zoneBar .zr").style.flex=Math.log(lo/GR_MIN)+" 1 0%";
+  document.querySelector(".zoneBar .za").style.flex=Math.log(hi/lo)+" 1 0%";
+  document.querySelector(".zoneBar .zg").style.flex=Math.log(GR_MAX/hi)+" 1 0%";
+}
+function updateAvgUI(){
+  $("avgLbl").textContent=S.avg+"s avg";
+  $("miniAvg").textContent=S.avg+"S AVG";
+}
+function paintSlider(el){   // filled-track pill: blue up to the thumb, sand after
+  var mn=+el.min||0, mx=+el.max||100;
+  el.style.setProperty("--fill",((+el.value-mn)/(mx-mn)*100)+"%");
 }
 
 // ---- general bindings ----
@@ -287,25 +493,41 @@ function bindG(id,key){
   if(el.type==="checkbox"){ el.checked=S[key];
     el.onchange=function(){ S[key]=el.checked; save(); applyLive(); }; return; }
   el.value=S[key]; if(v) v.textContent=S[key];
-  el.oninput=function(){ S[key]=parseFloat(el.value); if(v) v.textContent=el.value;
-    save(); $("avgLbl").textContent="("+S.avg+"s avg)";
+  paintSlider(el);
+  function commit(){ S[key]=parseFloat(el.value); if(v) v.textContent=el.value;
+    paintSlider(el); save(); updateAvgUI();
     if(key==="vol"&&outVol&&ctx) outVol.gain.setTargetAtTime(volGain(S.vol),ctx.currentTime,0.03);
-    applyLive(); };
-  /* Scroll guard: a native range input jumps its value the moment a finger
-     lands on it — even when the pilot only meant to scroll the page.  With
-     touch-action:pan-y (CSS), a vertical gesture becomes a page scroll and
-     the browser fires pointercancel on the slider — at which point we undo
-     the accidental jump by restoring the value remembered at touch-down. */
-  var preVal=null;
-  el.addEventListener("pointerdown",function(){ preVal=el.value; });
-  el.addEventListener("pointercancel",function(){
-    if(preVal!==null&&el.value!==preVal){
-      el.value=preVal;
-      el.dispatchEvent(new Event("input"));   // runs the handler above: restores S + saves
-    }
-    preVal=null;
+    applyLive(); }
+  /* Scroll guard v2: a native range jumps its value the instant a finger lands,
+     even when the pilot only meant to scroll.  The old guard COMMITTED that
+     jump (audibly, for volume) then restored it on pointercancel — so the
+     value flickered.  Now a TOUCH commits only once it's confirmed a
+     horizontal drag (>=6px, more across than down); until then input events
+     are ignored, so a scroll never changes the value — no commit, no audio
+     blip, no flicker.  Mouse/pen/keyboard commit immediately as before. */
+  var touchActive=false, dragOK=false, preVal=null, dx0=0, dy0=0;
+  el.addEventListener("pointerdown",function(e){
+    if(e.pointerType==="touch"){ touchActive=true; dragOK=false; preVal=el.value;
+      dx0=e.clientX; dy0=e.clientY; }
   });
-  el.addEventListener("pointerup",function(){ preVal=null; });
+  el.addEventListener("pointermove",function(e){
+    if(!touchActive||dragOK) return;
+    if(Math.abs(e.clientX-dx0)>=6 && Math.abs(e.clientX-dx0)>Math.abs(e.clientY-dy0)){
+      dragOK=true; commit();   // horizontal intent confirmed: adopt the drag position
+    }
+  });
+  el.oninput=function(){
+    if(touchActive&&!dragOK) return;   // provisional touch: ignore until it's a real drag
+    commit();
+  };
+  el.addEventListener("pointerup",function(){
+    if(touchActive&&!dragOK){ el.value=preVal; paintSlider(el); }   // tap/scroll start: unchanged
+    touchActive=false;
+  });
+  el.addEventListener("pointercancel",function(){
+    if(touchActive){ el.value=preVal; paintSlider(el); }   // scroll: restore, never committed
+    touchActive=false;
+  });
 }
 // Settings can arrive from an older widget instance via the localStorage sync
 // loop, not just from our own load, so normalization must run on BOTH paths.
@@ -315,11 +537,12 @@ function normalizeSettings(){
 }
 normalizeSettings();
 bindG("g_avg","avg"); bindG("g_vol","vol");
-$("avgLbl").textContent="("+S.avg+"s avg)";
+updateAvgUI(); updateZoneThr();
 function refreshGeneralUI(){
   $("g_avg").value=S.avg; $("g_avgV").textContent=S.avg;
   $("g_vol").value=S.vol; $("g_volV").textContent=S.vol;
-  $("avgLbl").textContent="("+S.avg+"s avg)";
+  paintSlider($("g_avg")); paintSlider($("g_vol"));
+  updateAvgUI(); updateZoneThr();
 }
 
 // ================= curve model =================
@@ -328,7 +551,7 @@ var SCALES={
   rate:{min:0.5,max:8,snap:0.25},
   duty:{min:5,max:100,snap:5}
 };
-var COLORS={pitch:"#40C4FF",rate:"#2FBE6A",duty:"#E36BD6"};
+var COLORS={pitch:"#2A78D6",rate:"#2BB56A",duty:"#C255AE"};
 var DASH={pitch:[],rate:[6,5],duty:[2,4]};
 function lerp(pts,x){
   if(x<=pts[0].gr) return pts[0].v;
@@ -360,7 +583,25 @@ function edResize(){
   edDraw();
 }
 window.addEventListener("resize",edResize);
-$("setPanel").addEventListener("toggle",function(){ if(this.open) setTimeout(edResize,60); });
+/* Accordions replace the old <details> panels: max-height animates ~250ms,
+   the chevron rotates, and the curves accordion re-measures the canvas on
+   open (it draws at zero height while collapsed). */
+function accBind(head,body,onOpen){
+  head.addEventListener("click",function(){
+    var open=!body.classList.contains("open");
+    body.classList.toggle("open",open); head.classList.toggle("open",open);
+    if(open){
+      body.style.maxHeight=body.scrollHeight+"px";
+      setTimeout(function(){ body.style.maxHeight="none"; if(onOpen) onOpen(); },280);
+    } else {
+      body.style.maxHeight=body.scrollHeight+"px";
+      requestAnimationFrame(function(){ body.style.maxHeight="0px"; });
+    }
+  });
+}
+accBind($("curvesHead"),$("curvesBody"),function(){ edResize(); });
+accBind($("sdBadHead"),$("sdBadBody"));
+accBind($("sdGoodHead"),$("sdGoodBody"));
 /* Logarithmic GR axis: ln maps GR 4..20 so that 9.0 sits at 50.4% of the
    width — fine touch control where pilots actually glide (5-10), the rare
    high ratios compressed toward the right edge. */
@@ -403,7 +644,7 @@ function edCurve(kind){
     }
     c2.fillStyle=color;
     c2.beginPath(); c2.arc(x,y,7,0,7); c2.fill();
-    c2.fillStyle="#0A0E12";
+    c2.fillStyle="#FFFFFF";
     c2.beginPath(); c2.arc(x,y,3,0,7); c2.fill();
   });
   c2.globalAlpha=1;
@@ -417,9 +658,9 @@ function edDraw(){
   if(W<40) return;
   c2.clearRect(0,0,W,H);
   var xT=xOf(S.thr);
-  c2.fillStyle="rgba(240,155,46,0.07)"; c2.fillRect(PAD.l,PAD.t,xT-PAD.l,H-PAD.t-PAD.b);
-  c2.fillStyle="rgba(47,190,106,0.07)"; c2.fillRect(xT,PAD.t,W-PAD.r-xT,H-PAD.t-PAD.b);
-  c2.strokeStyle="#1D252C"; c2.fillStyle="#5A6670";
+  c2.fillStyle="rgba(239,161,59,0.09)"; c2.fillRect(PAD.l,PAD.t,xT-PAD.l,H-PAD.t-PAD.b);
+  c2.fillStyle="rgba(43,181,106,0.09)"; c2.fillRect(xT,PAD.t,W-PAD.r-xT,H-PAD.t-PAD.b);
+  c2.strokeStyle="#ECE7DE"; c2.fillStyle="#B4AEA2";
   c2.font="10px monospace"; c2.textAlign="center"; c2.lineWidth=1;
   var ticks=[4,5,6,7,8,9,10,12,14,16,20];   // log axis: even visual spacing
   for(var gi=0;gi<ticks.length;gi++){
@@ -427,28 +668,28 @@ function edDraw(){
     c2.beginPath(); c2.moveTo(x,PAD.t); c2.lineTo(x,H-PAD.b); c2.stroke();
     c2.fillText(ticks[gi],x,H-7);
   }
-  c2.strokeStyle="rgba(58,121,160,0.18)";
+  c2.strokeStyle="rgba(42,120,214,0.1)";
   for(var hg=200;hg<=2000;hg+=200){
     var gy=yOf("pitch",hg);
     c2.beginPath(); c2.moveTo(PAD.l,gy); c2.lineTo(W-PAD.r,gy); c2.stroke();
   }
-  c2.textAlign="right"; c2.fillStyle="#3A79A0";
+  c2.textAlign="right"; c2.fillStyle="#8FB0D9";
   for(var hz=200;hz<=2000;hz+=400) c2.fillText(hz,PAD.l-6,yOf("pitch",hz)+3);
   c2.fillText("Hz",PAD.l-6,PAD.t+2);
-  c2.textAlign="left"; c2.fillStyle="#3E7A57";
+  c2.textAlign="left"; c2.fillStyle="#83C39D";
   for(var b=1;b<=8;b+=2) c2.fillText(b,W-PAD.r+5,yOf("rate",b)+3);
   c2.fillText("/s",W-PAD.r+5,PAD.t+2);
-  c2.fillStyle="#9A4E90"; c2.font="9px monospace";
+  c2.fillStyle="#C99BC0"; c2.font="9px monospace";
   [25,50,75].forEach(function(d){ c2.fillText(d+"%",PAD.l+4,yOf("duty",d)+3); });
-  c2.strokeStyle="#F09B2E"; c2.lineWidth=2.5;
+  c2.strokeStyle="#EFA13B"; c2.lineWidth=2.5;
   c2.beginPath(); c2.moveTo(xT,PAD.t); c2.lineTo(xT,H-PAD.b); c2.stroke();
-  var lbl="THR "+S.thr.toFixed(1);
+  var lbl="THR "+fmtThr(S.thr);
   c2.font="bold 11px monospace";
   var tw=c2.measureText(lbl).width;
-  c2.fillStyle="#F09B2E";
-  rr(xT-tw/2-7,2,tw+14,17,4); c2.fill();
-  c2.fillStyle="#0B0E11"; c2.textAlign="center";
-  c2.fillText(lbl,xT,14);
+  c2.fillStyle="#EFA13B";
+  rr(xT-tw/2-9,2,tw+18,18,9); c2.fill();
+  c2.fillStyle="#FFFFFF"; c2.textAlign="center";
+  c2.fillText(lbl,xT,15);
   edCurve("duty"); edCurve("rate"); edCurve("pitch");
   if(edDrag&&edDrag.kind!=="thr"){
     var dp=S.curves[edDrag.kind][edDrag.i];
@@ -462,14 +703,14 @@ function edDraw(){
     var txt=(matched?"= ":"")+dp.v+unit;
     var tw2=c2.measureText(txt).width;
     var bx=Math.min(W-PAD.r-tw2-14,Math.max(PAD.l,xOf(dp.gr)+14));
-    c2.fillStyle=matched?"#F09B2E":col;
+    c2.fillStyle=matched?"#EFA13B":col;
     rr(bx,gy2-19,tw2+12,16,4); c2.fill();
-    c2.fillStyle="#0B0E11"; c2.textAlign="left";
+    c2.fillStyle="#FFFFFF"; c2.textAlign="left";
     c2.fillText(txt,bx+6,gy2-7);
   }
   if(auditionGR!==null){
     var xa=xOf(auditionGR);
-    c2.strokeStyle="rgba(237,234,227,.8)"; c2.lineWidth=1.5;
+    c2.strokeStyle="rgba(26,29,33,.55)"; c2.lineWidth=1.5;
     c2.beginPath(); c2.moveTo(xa,PAD.t); c2.lineTo(xa,H-PAD.b); c2.stroke();
   }
 }
@@ -559,7 +800,7 @@ function sdUI(container,side){
     opts.forEach(function(o){ var op=document.createElement("option");
       op.value=o[0]; op.textContent=o[1]; s.appendChild(op); });
     s.value=S.snd[side][key];
-    s.onchange=function(){ S.snd[side][key]=s.value; solidCfgKey=""; save(); applyLive(); };
+    s.onchange=function(){ S.snd[side][key]=s.value; solidCfgKey=""; save(); refreshSdSummaries(); applyLive(); };
     s.dataset.k=side+"."+key;
   }
   function chk(label,key){
@@ -570,21 +811,28 @@ function sdUI(container,side){
     cb.onchange=function(){ S.snd[side][key]=cb.checked; solidCfgKey=""; save(); applyLive(); };
     cb.dataset.k=side+"."+key;
   }
-  sel("Base tone","base",[["sine","Pure (smooth sine)"],["triangle","Soft (mellow triangle)"],
-    ["reed","Reed (filtered saw)"],["buzzer","Classic buzzer (hardware)"]]);
-  sel("Chirp (pitch inside beep)","chirp",[["off","Off — steady pitch"],["auto","Auto — glides by actual GR change"]]);
-  chk("Octave harmony (+12 semitones)","harm");
-  chk("Fifth harmony (+7 semitones)","fifth");
-  chk("Warm chorus (rich shimmer)","chorus");
-  chk("Warble (gentle wobble)","warble");
+  sel("Base tone","base",[["sine","Pure sine"],["triangle","Soft triangle"],
+    ["reed","Reed (filtered saw)"],["buzzer","Classic buzzer"]]);
+  sel("Chirp","chirp",[["off","Off"],["auto","Auto — follows GR"]]);
+  chk("Octave +12","harm");
+  chk("Fifth +7","fifth");
+  chk("Chorus","chorus");
+  chk("Warble","warble");
 }
 sdUI("sdBad","bad"); sdUI("sdGood","good");
+var BASE_NAMES={sine:"Pure sine",triangle:"Soft triangle",reed:"Reed",buzzer:"Classic buzzer"};
+function refreshSdSummaries(){   // accordion headers echo the chosen base tone
+  $("sumBad").textContent=BASE_NAMES[S.snd.bad.base]||S.snd.bad.base;
+  $("sumGood").textContent=BASE_NAMES[S.snd.good.base]||S.snd.good.base;
+}
+refreshSdSummaries();
 function refreshSdUI(){
   document.querySelectorAll(".sd select,.sd input").forEach(function(el){
     var k=el.dataset.k; if(!k) return;
     var p=k.split("."), v=S.snd[p[0]][p[1]];
     if(el.type==="checkbox") el.checked=v; else el.value=v;
   });
+  refreshSdSummaries();
 }
 
 // ================= audio engine =================
@@ -813,7 +1061,12 @@ function setSound(on){
   $("hint").style.display=on?"none":"";
   clearTimeout(beepTimer);
   if(on){
-    claimAudio(); wasBlocked=false;   // an explicit tap on THIS page takes ownership
+    /* Only a VISIBLE page may take the ownership token.  Hidden pages also
+       run setSound(true) via the gv_audio sync — if they claimed here, they
+       stole the token from the page the pilot was actually looking at, which
+       muted itself ~1 s after an unmute ("played for 1 sec then stopped"). */
+    if(pageVisible()) claimAudio();
+    wasBlocked=false;
     /* The state machine in applyLive() is the ONLY thing allowed to start the
        beep loop (off->beep transition).  Starting it here too used to fire a
        second, overlapping beep on the first tap — the "two audio sources for
@@ -824,6 +1077,9 @@ function setSound(on){
   else { if(solidGain) solidGain.gain.setTargetAtTime(0,ctx.currentTime,0.02);
     lastEngineState="off"; }
   $("sndDot").className=on?"on":"";
+  $("sndChipTxt").textContent=on?"SOUND ON":"SOUND OFF";
+  $("sndChip").classList.toggle("on",on);
+  $("grCard").classList.toggle("on",on);   // sound state tints the whole card (main widget)
   persistAudio(on);
   log("Sound "+(on?"ON":"OFF"));
 }
@@ -999,13 +1255,14 @@ function poll(){
       var spdC=(d.speedComputed!=null)?d.speedComputed:null;
       ingest(ftime,baroA,gpsA,d.lat,d.lon,spdC);
     }catch(e){ log("parse err: "+e.message); }
-  } else if(!gotData){
-    $("status").textContent="No XCTrack data — check 'Allow web page to access XCTrack data'. Waiting…";
   }
+  /* no data yet: the status pill stays "Waiting · XCTrack" and the hint line
+     below the GR card explains the XCTrack permission */
 }
 var lastFixTime=null;
 function resetTrack(reason){
   samples.length=0; cumDist=0; lastLat=null; lastLon=null; lastFixTime=null;
+  grHist.length=0;   // the sparkline history must restart with the track
   log("Track reset ("+reason+")");
 }
 function ingest(ftime,baroA,gpsA,lat,lon,spdC){
@@ -1037,6 +1294,7 @@ function ingest(ftime,baroA,gpsA,lat,lon,spdC){
     lastLat=lat; lastLon=lon;
   }
   samples.push({t:t, baro:baroA, gps:gpsA, dist:cumDist, spd:spdC});
+  lastFixWall=Date.now();   // drives the Connected/Waiting pill
   var horizon=Math.max(S.avg,3)*1000+500;
   while(samples.length&&t-samples[0].t>horizon) samples.shift();
   compute(t);
@@ -1090,10 +1348,79 @@ function compute(t){
   if(document.hidden) return;   // battery: buffer stays warm, but no DOM/audio work while hidden
   var gr=grNow(t);
   if(!demoActive){ currentGR=gr; updateGRDisplay(); applyLive(); }
-  var sec=(t/1000)|0;                        // battery: touch the status DOM 1x/s, not per poll
-  if(sec!==lastStatusSec){ lastStatusSec=sec;
-    $("status").textContent="Live · "+new Date(t).toLocaleTimeString(); }
+  /* self-heal: if anything ever wedges the trace, dump the history and let it
+     rebuild — a frozen trendline must never survive to the next fix */
+  try{ sparkTick(t); }catch(e){ grHist.length=0; log("spark self-heal: "+e.message); }
+  var sec=(t/1000)|0;                        // battery: zone marker updates 1x/s
+  if(sec!==lastStatusSec){ lastStatusSec=sec; uiTick(t); }
 }
+/* ---- GR-over-time sparkline: a 30 s window at the same scroll speed as
+   before (3x the length, stretched to the card's right edge).  A value
+   appears at the right edge and slides off the left exactly 30 s later.
+   Each point is "printed" in the zone colour the GR number showed at that
+   moment (good/marginal/bad vs the threshold AT RECORDING TIME) and keeps
+   that colour as it scrolls off — drawn as one polyline per colour run. ---- */
+var SPARK_MS=30000, SPARK_W=420;
+var grHist=[];
+function zoneOf(gr){ return gr>S.thr+0.5?"good":(gr<S.thr-0.5?"bad":"marginal"); }
+function sparkTick(t){
+  /* time went backwards (clock hiccup, replay scrub): stale future-stamped
+     points would never prune and the trace would freeze — restart it */
+  if(grHist.length&&grHist[grHist.length-1].t>t) grHist.length=0;
+  if(currentGR!==null&&isFinite(currentGR))
+    grHist.push({t:t,gr:currentGR,z:zoneOf(currentGR)});
+  var t0=t-SPARK_MS;
+  while(grHist.length&&grHist[0].t<t0) grHist.shift();
+  var side=$("grSide");
+  if(grHist.length>=5&&grHist[grHist.length-1].t-grHist[0].t>=2500){
+    side.classList.add("show");
+    /* FIXED y-axis: the full GR 4..20 range on the same log scale as the zone
+       bar and curve editor, spanning nearly the whole viewBox height
+       (64 units, y 4..60) for maximum vertical resolution.  A given GR
+       always draws at the same height. */
+    var i, all="", segs=[], cur=null;
+    for(i=0;i<grHist.length;i++){
+      var P=((grHist[i].t-t0)/SPARK_MS*SPARK_W).toFixed(1)+","
+           +(60-zonePos(grHist[i].gr)*0.56).toFixed(1);
+      all+=(i?" ":"")+P;
+      if(!cur||grHist[i].z!==cur.z){
+        var nc={z:grHist[i].z,pts:cur&&cur.pts.length?
+                [cur.pts[cur.pts.length-1]]:[]};   // share the boundary point
+        cur=nc; segs.push(cur);
+      }
+      cur.pts.push(P);
+    }
+    var svg="";
+    for(i=0;i<segs.length;i++){
+      if(segs[i].pts.length<2) continue;
+      svg+='<polyline class="sparkSeg '+segs[i].z+'" points="'+segs[i].pts.join(" ")+'"></polyline>';
+    }
+    $("sparkSegs").innerHTML=svg;
+    $("sparkW").setAttribute("points",all);   // white underlay (medium mode only)
+    var d=grHist[grHist.length-1].gr-grHist[0].gr, up=d>=0;
+    $("trendVal").textContent=Math.abs(d).toFixed(1);
+    $("trend").classList.toggle("down",!up);
+    $("trendPoly").setAttribute("points",up?"6,0 12,10 0,10":"6,10 0,0 12,0");
+    $("trendPoly").setAttribute("fill",up?"#1F9D5B":"#D92B20");
+  } else side.classList.remove("show");
+}
+/* ---- 1 Hz UI: zone-bar marker ---- */
+function uiTick(t){
+  var zn=$("zoneNow");
+  if(currentGR!==null&&isFinite(currentGR)){
+    zn.style.display="block"; zn.style.left=zonePos(currentGR)+"%";
+  } else zn.style.display="none";
+}
+/* ---- Connected/Waiting pill (wall clock: works when fixes STOP too) ---- */
+var lastFixWall=0, statusConn=null;
+setInterval(function(){
+  if(document.hidden) return;
+  var c=(Date.now()-lastFixWall)<5000;
+  if(c!==statusConn){ statusConn=c;
+    $("statusTxt").textContent=c?"Connected · XCTrack":"Waiting · XCTrack";
+    $("status").classList.toggle("conn",c);
+  }
+},2000);
 var lastGrText="", lastGrClass="";
 function updateGRDisplay(){
   var gr=currentGR;
@@ -1117,7 +1444,7 @@ function updateGRDisplay(){
    timestamps, so faster polling adds freshness without adding noise. */
 setInterval(poll,100);
 edResize();
-log("v0.43: hidden pages can no longer stack frozen voices (overlap/clicks fix), 4s min averaging, 10Hz capture, slider scroll guard, mini label, live volume sync.");
+log("v0.57: main widget graph line = 70% of the zone bar thickness (11.2px).");
 
 // ================= offline caching =================
 if("serviceWorker" in navigator){
@@ -1137,7 +1464,10 @@ if("serviceWorker" in navigator){
   log("Offline cache: serviceWorker API not present");
 }
 // ---- support panel: no navigation (XCTrack WebView has no back button) ----
-$("supBtn").onclick=function(){ $("supPanel").classList.toggle("open"); };
+$("supBtn").onclick=function(){
+  var open=$("supPanel").classList.toggle("open");
+  $("supBtn").classList.toggle("open",open);
+};
 $("supCopy").onclick=function(){
   var url="https://paypal.me/irluke/5", btn=this;
   function done(ok){ btn.textContent=ok?"Copied ✓":"Copy failed — long-press the link above";
